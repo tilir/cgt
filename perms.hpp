@@ -62,12 +62,16 @@ public:
   Permutation& rmul(Permutation rhs);
 
   // inverted permutation
-  void invert();
+  void inverse() { for (auto& l: loops_) l.inverse(); }
 
 // selectors
 public:
   // apply permutation to elem
   T apply(T elem) const;
+
+  void apply(vector<T>& table) const {
+    for (auto l: loops_) l.apply(start_, fin_, table);
+  }
 
   // true if permutation contains element
   bool contains(T elem) const;
@@ -118,6 +122,12 @@ Permutation<T> product(const Permutation<T>& lhs, const Permutation<T>& rhs) {
   return retval;
 }
 
+template <typename T>
+Permutation<T> invert(Permutation<T> lhs) {
+  lhs.inverse();
+  return lhs;
+}
+
 //------------------------------------------------------------------------------
 //
 // Ctors/dtors
@@ -148,6 +158,12 @@ Permutation<T>::Permutation (T start, T fin, vector<PermLoop<T>> init) :
 #endif
 }
 
+//------------------------------------------------------------------------------
+//
+// Selectors
+//
+//------------------------------------------------------------------------------
+
 template <typename T>
 T Permutation<T>::apply(T elem) const {
   T res = move(elem);
@@ -168,6 +184,12 @@ void Permutation<T>::dump(ostream& os) const {
   for (auto l : loops_)
     l.dump(os);
 }
+
+//------------------------------------------------------------------------------
+//
+// Modifiers
+//
+//------------------------------------------------------------------------------
 
 template <typename T>
 Permutation<T>& Permutation<T>::lmul(const Permutation<T> &input) {

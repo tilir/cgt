@@ -1,3 +1,9 @@
+//------------------------------------------------------------------------------
+//
+// Tests for permutations and permutation loops
+//
+//------------------------------------------------------------------------------
+
 #include "permcommon.hpp"
 #include "permloops.hpp"
 #include "perms.hpp"
@@ -81,20 +87,60 @@ test_simple_perms() {
   assert (n2 == g2);
 
   auto b2 = product(n2, g2);
-  cout << "b2 = " << b2 << endl;
   assert (b2 == e);
 
   auto n3 = product(n1, g2);
-  cout << "e * g1 * g2 = " << n3 << endl;
+  cout << n1 << " * " << g2 << " = " << n3 << endl;
+
+  auto b3 = product(n3, g2);
+  cout << n3 << " * " << g2 << " = " << b3 << endl;
+  assert (b3 == g1);
+
   auto n4 = product(n2, g1);
-  cout << "e * g2 * g1 = " << n4 << endl;
+  cout << n2 << " * " << g1 << " = " << n4 << endl;
   assert (n3 != n4);
+
+  auto b4 = product(n4, g1);
+  cout << n4 << " * " << g1 << " = " << b4 << endl;
+  assert (b4 == g2);
 
   auto n5 = product(n4, g2);
   cout << "e * g2 * g1 * g2 = " << n5 << endl;
+
   auto n6 = product(n3, g1);
   cout << "e * g1 * g2 * g1 = " << n6 << endl;
+
   assert (n5 == n6);
+
+  Permutation<int> e6(1, 6);
+  Permutation<int> g3(1, 6, {{1, 2},{3, 4, 5}});
+  auto g3orig = g3;
+  cout << "Permutation: " << g3 << endl;
+  vector<int> initial {1, 2, 3, 4, 5};
+  vector<int> permuted {2, 1, 4, 5, 3};
+  auto v = initial;
+  g3.apply(v);
+  assert (v == permuted);
+  g3.inverse();
+  cout << "Inversed permutation: " << g3 << endl;
+  g3.apply(v);
+  assert (v == initial);
+  auto p1 = product(g3, g3orig);
+  cout << "Product of perm and inverse " << p1 << endl;
+  assert (p1 == e6);
+  assert (product(g3orig, g3) == p1);
+  g3 = g3orig;
+  Permutation<int> g4(1, 6, {{1, 2, 3},{4, 5}});
+  Permutation<int> g5(1, 6, {{1, 3},{2, 4, 5}});
+  auto p34 = product(g3, g4);
+  auto p45 = product(g4, g5);
+  cout << g3 << " * " << g4 << " = " << p34 << endl;  
+  cout << g4 << " * " << g5 << " = " << p45 << endl;  
+  auto px = product(g3, p45);
+  auto py = product(p34, g5);
+  cout << "g3 * (g4 * g5) = " << px << endl;
+  cout << "(g3 * g4) * g5) = " << py << endl;
+  assert (px == py);
 }
 
 int

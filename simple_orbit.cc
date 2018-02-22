@@ -1,3 +1,9 @@
+//------------------------------------------------------------------------------
+//
+// 1. Simplest and far from ideal orbit calculation
+//
+//------------------------------------------------------------------------------
+
 #include <cassert>
 #include <algorithm>
 #include <iostream>
@@ -36,7 +42,7 @@ void orbit(T num, T DomainStart, T DomainEnd, vector<Permutation<T>> gens) {
     next.swap(tmp);
   }
 
-  cout << "Orbit for " << num << " is: [";
+  cout << "Orbit for " << num << " is: [ ";
   copy(orbit.begin(), orbit.end(), ostream_iterator<T>(cout, " "));
   cout << "]" << endl;
   cout << "Coset representatives:" << endl;
@@ -49,15 +55,26 @@ main () {
   unsigned DomainStart = 1;
   unsigned DomainEnd = 6;
 
-  Permutation<unsigned> g1 (DomainStart, DomainEnd, {{1, 2, 3},{4, 5}});
-  Permutation<unsigned> g2 (DomainStart, DomainEnd, {{1, 2},{3, 4, 5}});
+#ifdef ALT
+  Permutation<unsigned> g1 (DomainStart, DomainEnd, {{1, 2},{3, 4}});
+  Permutation<unsigned> g2 (DomainStart, DomainEnd, {{2, 3},{4, 5}});
 
-  for (unsigned i = DomainStart; i <= DomainEnd; ++i)
+  for (unsigned i = DomainStart; i != DomainEnd; ++i)
     orbit(i, DomainStart, DomainEnd, {g1, g2});
+#endif
 
+#ifdef SYM
   Permutation<unsigned> g3 (DomainStart, DomainEnd, {{1, 2}});
   Permutation<unsigned> g4 (DomainStart, DomainEnd, {{1, 2, 3, 4, 5}});
 
   for (unsigned i = DomainStart; i != DomainEnd; ++i)
     orbit(i, DomainStart, DomainEnd, {g3, g4});
+#endif
+
+  unsigned Domain7Start = 1;
+  unsigned Domain7End = 8;
+
+  Permutation<unsigned> g5 (Domain7Start, Domain7End, {{1, 3, 7},{2, 5}});
+  Permutation<unsigned> g6 (Domain7Start, Domain7End, {{3, 4, 6, 7}});
+  orbit(1u, Domain7Start, Domain7End, {g5, g6});
 }
