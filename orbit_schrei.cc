@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 //
-// 3. Better orbit calculation with schreier vector
+// HCGT, page 80. Better orbit calculation with schreier vector
 //
 //------------------------------------------------------------------------------
 
@@ -11,11 +11,9 @@
 #include "perms.hpp"
 
 using std::cout;
-using std::copy;
 using std::endl;
 using std::make_pair;
 using std::pair;
-using std::ostream_iterator;
 using std::vector;
 
 template<typename T>

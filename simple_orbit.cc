@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 //
-// 1. Simplest and far from ideal orbit calculation
+// HCGT, page 78. Simplest and far from ideal orbit calculation
 //
 //------------------------------------------------------------------------------
 

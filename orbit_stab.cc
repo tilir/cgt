@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 //
-// 2. Better orbit calculation with stabilizer added
+// HCGT, page 79. Better orbit calculation with stabilizer added
 //
 //------------------------------------------------------------------------------
 
