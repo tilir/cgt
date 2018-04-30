@@ -39,27 +39,26 @@
 
 template <typename T>
 class Permutation {
-  T start_, fin_;
   vector<PermLoop<T>> loops_;
 
 // ctors/dtors
 public:
-  // we may want maps and sets of permutations
-  Permutation () = default;
+  // id permutation over domain
+  Permutation ();
 
-  // id permutation over domain [start, fin)
-  Permutation (T start, T fin);
+  // permutation over domain with some initial loops
+  template<typename RandIt>
+  Permutation (RandIt ibeg, RandIt ifin);
 
-  // permutation over domain [start, fin) with some initial loops
-  Permutation (T start, T fin, vector<PermLoop<T>> init);
+  Permutation (initializer_list<PermLoop<T>> ilist) : Permutation(ilist.begin(), ilist.end()) {}
 
 // modifiers
 public:
-  // right multiply this = this * rhs
+  // left multiply this = lhs * this
   Permutation& lmul(const Permutation& rhs);
 
-  // left multiply this = lhs * this
-  Permutation& rmul(Permutation rhs);
+  // right multiply this = this * rhs
+  Permutation& rmul(const Permutation& rhs);
 
   // inverted permutation
   void inverse() { for (auto& l: loops_) l.inverse(); }
@@ -69,8 +68,10 @@ public:
   // apply permutation to elem
   T apply(T elem) const;
 
-  void apply(vector<T>& table) const {
-    for (auto l: loops_) l.apply(start_, fin_, table);
+  // apply permutation (all loops in direct order) to given table
+  template <typename RandIt>
+  void apply(RandIt tbeg, RandIt tend) const {
+    for (auto l: loops_) l.apply(tbeg, tend);
   }
 
   // true if permutation contains element
@@ -78,6 +79,18 @@ public:
 
   // true if equals
   bool equals(const Permutation& rhs) const { return rhs.loops_ == loops_; }
+
+  // lexicographical less-than
+  bool less(const Permutation& rhs) const {
+    size_t sz = rhs.loops_.size();
+    if (sz != loops_.size())
+      return (loops_.size() < sz);
+    for (size_t i = 0; i != sz; ++i)
+      if (loops_[i] != rhs.loops_[i])
+        return (loops_[i] < rhs.loops_[i]);
+    return false;
+  }
+
 
 // dump and serialization
 public:
@@ -105,6 +118,11 @@ bool operator == (const Permutation<T>& lhs, const Permutation<T>& rhs) {
 }
 
 template <typename T>
+bool operator < (const Permutation<T>& lhs, const Permutation<T>& rhs) {
+  return lhs.less(rhs);
+}
+
+template <typename T>
 bool operator != (const Permutation<T>& lhs, const Permutation<T>& rhs) {
   return !operator==(lhs, rhs);
 }
@@ -117,8 +135,8 @@ static inline ostream& operator<<(ostream& os, const Permutation<T>& rhs) {
 
 template <typename T>
 Permutation<T> product(const Permutation<T>& lhs, const Permutation<T>& rhs) {
-  Permutation<T> retval = rhs;
-  retval.lmul(lhs);
+  Permutation<T> retval = lhs;
+  retval.rmul(rhs);
   return retval;
 }
 
@@ -135,8 +153,8 @@ Permutation<T> invert(Permutation<T> lhs) {
 //------------------------------------------------------------------------------
 
 template <typename T>
-Permutation<T>::Permutation (T start, T fin) : start_(start), fin_(fin) {
-  for (T x = start_; x != fin_; ++x)
+Permutation<T>::Permutation () {
+  for (auto x = T::start; x <= T::fin; ++x)
     loops_.push_back(PermLoop<T> {x});
   sortloops();
 #ifdef CHECKS
@@ -145,13 +163,10 @@ Permutation<T>::Permutation (T start, T fin) : start_(start), fin_(fin) {
 }
 
 template <typename T>
-Permutation<T>::Permutation (T start, T fin, vector<PermLoop<T>> init) :
-  start_(start), fin_(fin), loops_(init) 
+template <typename RandIt>
+Permutation<T>::Permutation (RandIt ibeg, RandIt ifin)   
 {
-  assert(start_ < fin_);
-  assert(!loops_.empty());
-  simplify_loops(start_, fin_, loops_);
-
+  simplify_loops(ibeg, ifin, back_inserter(loops_));
   sortloops();
 #ifdef CHECKS
   check();
@@ -194,7 +209,9 @@ void Permutation<T>::dump(ostream& os) const {
 template <typename T>
 Permutation<T>& Permutation<T>::lmul(const Permutation<T> &input) {
   loops_.insert(loops_.begin(), input.loops_.begin(), input.loops_.end());
-  simplify_loops(start_, fin_, loops_);
+  vector<PermLoop<T>> outloops;
+  simplify_loops(loops_.begin(), loops_.end(), back_inserter(outloops));
+  loops_.swap(outloops);
   sortloops();
 #ifdef CHECKS
   check();
@@ -203,10 +220,11 @@ Permutation<T>& Permutation<T>::lmul(const Permutation<T> &input) {
 }
 
 template <typename T>
-Permutation<T>& Permutation<T>::rmul(const Permutation<T> input) {
-  input.loops_.insert(input.loops_.begin(), loops_.begin(), loops_.end());
-  swap(loops_, input.loops_);
-  simplify_loops(start_, fin_, loops_);
+Permutation<T>& Permutation<T>::rmul(const Permutation<T> &input) {
+  loops_.insert(loops_.end(), input.loops_.begin(), input.loops_.end());
+  vector<PermLoop<T>> outloops;
+  simplify_loops(loops_.begin(), loops_.end(), back_inserter(outloops));
+  loops_.swap(outloops);
   sortloops();
 #ifdef CHECKS
   check();
@@ -222,13 +240,13 @@ Permutation<T>& Permutation<T>::rmul(const Permutation<T> input) {
 
 template <typename T>
 Permutation<T>::check() {
-  if (start_ >= fin_) 
+  if (T::start_ >= T::fin_) 
     throw runtime_error("Domain error");
 
   if (loops_.empty()) 
     throw runtime_error("Empty permutation");
 
-  for (auto x = start_; x != fin_; ++x)
+  for (auto x = T::start; x <= T::fin; ++x)
     if (!contains(x))
       throw runtime_error("Every domain element shall be covered");
 

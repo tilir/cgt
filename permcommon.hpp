@@ -17,6 +17,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <list>
+#include <map>
 #include <numeric>
 #include <set>
 #include <sstream>
@@ -31,10 +32,13 @@ using std::initializer_list;
 using std::iota;
 using std::logic_error;
 using std::make_pair;
+using std::make_reverse_iterator;
+using std::map;
 using std::min_element;
 using std::move;
 using std::next;
 using std::ostream;
+using std::ostream_iterator;
 using std::pair;
 using std::prev;
 using std::rbegin;

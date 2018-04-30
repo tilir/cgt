@@ -39,6 +39,10 @@ template <typename T>
 class PermLoop {
   vector<T> loop_;
 
+// traits
+public:
+  using value_type = T;
+
 // ctors/dtors
 public:
   // from initializer list
@@ -70,13 +74,23 @@ public:
   // apply loop to given element
   T apply (T x) const;
 
-  // permute [start..fin) table with loop
+  // permute on table with loop
   // this is more effective then element-wise application
-  void apply(T start, T fin, vector<T>& table) const;
+  template <typename RandIt>
+  void apply(RandIt tbeg, RandIt tend) const;
 
   // true if loops are equal
-  bool equals (const PermLoop& rhs) const {
-    return loop_ == rhs.loop_;
+  bool equals (const PermLoop& rhs) const { return loop_ == rhs.loop_; }
+
+  // lexicographical less-than
+  bool less (const PermLoop& rhs) const { 
+    size_t sz = rhs.loop_.size();
+    if (loop_.size() != sz)
+      return loop_.size() < sz;
+    for (size_t i = 0; i != sz; ++i)
+      if (loop_[i] != rhs.loop_[i])
+        return loop_[i] < rhs.loop_[i];
+    return false;
   }
 
   // size of loop
@@ -88,7 +102,7 @@ public:
   void dump(ostream& buffer) const;
 
   // return as string
-  string to_string() const {
+  string to_string() const { 
     stringstream buffer;
     dump(buffer);
     return buffer.str();
@@ -121,6 +135,11 @@ bool operator == (const PermLoop<T>& lhs, const PermLoop<T>& rhs) {
 }
 
 template <typename T>
+bool operator < (const PermLoop<T>& lhs, const PermLoop<T>& rhs) {
+  return lhs.less(rhs);
+}
+
+template <typename T>
 bool operator != (const PermLoop<T>& lhs, const PermLoop<T>& rhs) {
   return !operator==(lhs, rhs);
 }
@@ -132,10 +151,12 @@ ostream& operator<<(ostream& os, const PermLoop<T>& rhs) {
 }
 
 // creates array of loops from permutation given by table
-// say: a, g, [d, c, e, g, b, f, a] 
+// say: [d, c, e, g, b, f, a] with type CharDomain<a, g>
 // gives: [(a, d, g), (b, c, e), (f)]
-template <typename T>
-vector<PermLoop<T>> create_loops(T start, T fin, const vector<T>& table);
+template <typename T, 
+          typename RandIt = typename vector<T>::iterator, 
+          typename OutIt = typename vector<PermLoop<T>>::iterator>
+void create_loops(RandIt tbeg, RandIt tend, OutIt lbeg);
 
 // products all input loops over [start, fin) to minimize them
 // for example: 
@@ -143,8 +164,8 @@ vector<PermLoop<T>> create_loops(T start, T fin, const vector<T>& table);
 // simplifies to:
 // (a, d, g) (b, c, e) (f)
 // see TAOCP, Alg. 1.3.3B
-template <typename T>
-void simplify_loops (T start, T fin, vector<PermLoop<T>> &input);
+template <typename RandIt, typename OutIt>
+void simplify_loops (RandIt tbeg, RandIt tend, OutIt lbeg);
 
 //------------------------------------------------------------------------------
 //
@@ -210,20 +231,21 @@ T PermLoop<T>::apply (T x) const {
 }
 
 template <typename T>
-void PermLoop<T>::apply(T start, T fin, vector<T>& table) const {
-  assert(start < fin);
-  assert(loop_.front() >= start);
-  assert(loop_.back() < fin);
-  assert(table.size() == fin - start);
-  size_t nxt = loop_.front() - start;
-  T tmp = table[nxt];
+template <typename RandIt>
+void PermLoop<T>::apply(RandIt tbeg, RandIt tend) const {
+  assert(T::start < T::fin);
+  assert(loop_.front() >= T::start);
+  assert(loop_.back() <= T::fin);
+  assert(tend - tbeg == T::fin - T::start + 1);
+  size_t nxt = loop_.front() - T::start;
+  T tmp = tbeg[nxt];
   for (auto l : loop_) {
     size_t prev = nxt;
-    nxt = l - start;
+    nxt = l - T::start;
     if (l == loop_.front()) continue;
-    table[prev] = table[nxt];
+    tbeg[prev] = tbeg[nxt];
   }
-  table[nxt] = tmp;
+  tbeg[nxt] = tmp;
 }
 
 //------------------------------------------------------------------------------
@@ -274,39 +296,36 @@ void PermLoop<T>::check() {
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-vector<PermLoop<T>> create_loops(T start, T fin, const vector<T>& table) {
-  assert(start < fin);
-  assert(table.size() == fin - start);
-  vector<PermLoop<T>> retval;
-  vector<bool> marked(fin - start, false);
-  vector<T> idtable(fin - start);
-  iota(idtable.begin(), idtable.end(), start);
+template <typename RandIt, typename OutIt>
+void create_loops(RandIt tbeg, RandIt tend, OutIt lbeg) {
+  using T = typename std::decay<decltype(*tbeg)>::type;
+  using OutT = typename OutIt::container_type::value_type;
+  vector<bool> marked(tend - tbeg, false);
 
-  for (auto t: idtable) {
-    if (marked[t - start]) continue;
-    vector<T> targ = {t};
-    marked[t - start] = true;
-    T nxt = table[t - start];
-    while (nxt != t) {
-      targ.push_back(nxt);
-      marked[nxt - start] = true;
-      nxt = table[nxt - start];
+  for (auto mit = marked.begin(); mit != marked.end(); 
+       mit = find(mit + 1, marked.end(), false)) {
+    auto relt = mit - marked.begin();
+    auto t = static_cast<T>(T::start + relt);
+    OutT perm = {t};
+    marked[relt] = true;
+    for (T nxt = tbeg[relt]; nxt != t; nxt = tbeg[nxt - T::start]) {
+      perm.add(nxt);
+      marked[nxt - T::start] = true;
     }
-    PermLoop<T> perm(targ.begin(), targ.end());
-    retval.push_back(perm);
+    *lbeg = perm; lbeg++;
   }
-
-  return retval;
 }
 
-template <typename T>
-void simplify_loops (T start, T fin, vector<PermLoop<T>> &input) {
-  vector<T> table(fin - start);
-  iota(table.begin(), table.end(), start);
-  for (auto loop : reverse(input))
-    loop.apply(start, fin, table);
-  input = create_loops(start, fin, table);
+template <typename RandIt, typename OutIt>
+void simplify_loops (RandIt tbeg, RandIt tend, OutIt lbeg) {
+  using T = typename std::decay<decltype(*tbeg)>::type::value_type;
+  vector<T> table(T::fin - T::start + 1, T::start);
+  iota(table.begin(), table.end(), T::start);
+  for (auto loopit = make_reverse_iterator(tend); 
+       loopit != make_reverse_iterator(tbeg); 
+       ++loopit)
+    loopit->apply(table.begin(), table.end());
+  create_loops(table.begin(), table.end(), lbeg);
 }
 
 #endif
