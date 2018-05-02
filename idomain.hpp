@@ -18,12 +18,14 @@
 using std::string;
 using std::to_string;
 
-template <typename T, T start_, T fin_>
-struct Idom {
+template <typename T, T start_, T fin_> struct Idom {
   T val_;
   Idom(T val = start_) : val_(val) {
-    if (val > fin_) throw std::out_of_range(string("value too big for domain: ") + to_string(val));
-    if (val < start_) throw std::out_of_range("value too small for domain");
+    if (val > fin_)
+      throw std::out_of_range(string("value too big for domain: ") +
+                              to_string(val));
+    if (val < start_)
+      throw std::out_of_range("value too small for domain");
   }
   operator T() const { return val_; }
 
@@ -35,7 +37,6 @@ struct Idom {
 template <unsigned start_, unsigned fin_>
 using UnsignedDomain = Idom<unsigned, start_, fin_>;
 
-template <char start_, char fin_>
-using CharDomain = Idom<char, start_, fin_>;
+template <char start_, char fin_> using CharDomain = Idom<char, start_, fin_>;
 
 #endif

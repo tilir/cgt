@@ -13,7 +13,7 @@
 //
 // it sends a to c, b to e, etc...
 //
-// Permutation can be expressed in loop form. 
+// Permutation can be expressed in loop form.
 // Example from above contains two loops (a c f g) (d b e)
 //
 // Canonicalization of permutation means:
@@ -37,51 +37,53 @@
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-class Permutation {
+template <typename T> class Permutation {
   vector<PermLoop<T>> loops_;
 
-// ctors/dtors
+  // ctors/dtors
 public:
   // id permutation over domain
-  Permutation ();
+  Permutation();
 
   // permutation over domain with some initial loops
-  template<typename RandIt>
-  Permutation (RandIt ibeg, RandIt ifin);
+  template <typename RandIt> Permutation(RandIt ibeg, RandIt ifin);
 
-  Permutation (initializer_list<PermLoop<T>> ilist) : Permutation(ilist.begin(), ilist.end()) {}
+  Permutation(initializer_list<PermLoop<T>> ilist)
+      : Permutation(ilist.begin(), ilist.end()) {}
 
-// modifiers
+  // modifiers
 public:
   // left multiply this = lhs * this
-  Permutation& lmul(const Permutation& rhs);
+  Permutation &lmul(const Permutation &rhs);
 
   // right multiply this = this * rhs
-  Permutation& rmul(const Permutation& rhs);
+  Permutation &rmul(const Permutation &rhs);
 
   // inverted permutation
-  void inverse() { for (auto& l: loops_) l.inverse(); }
+  void inverse() {
+    for (auto &l : loops_)
+      l.inverse();
+  }
 
-// selectors
+  // selectors
 public:
   // apply permutation to elem
   T apply(T elem) const;
 
   // apply permutation (all loops in direct order) to given table
-  template <typename RandIt>
-  void apply(RandIt tbeg, RandIt tend) const {
-    for (auto l: loops_) l.apply(tbeg, tend);
+  template <typename RandIt> void apply(RandIt tbeg, RandIt tend) const {
+    for (auto l : loops_)
+      l.apply(tbeg, tend);
   }
 
   // true if permutation contains element
   bool contains(T elem) const;
 
   // true if equals
-  bool equals(const Permutation& rhs) const { return rhs.loops_ == loops_; }
+  bool equals(const Permutation &rhs) const { return rhs.loops_ == loops_; }
 
   // lexicographical less-than
-  bool less(const Permutation& rhs) const {
+  bool less(const Permutation &rhs) const {
     size_t sz = rhs.loops_.size();
     if (sz != loops_.size())
       return (loops_.size() < sz);
@@ -91,13 +93,12 @@ public:
     return false;
   }
 
-
-// dump and serialization
+  // dump and serialization
 public:
   // dump to stream
-  void dump(ostream& buffer) const;
+  void dump(ostream &buffer) const;
 
-// service functions
+  // service functions
 private:
   // sort loops to canonicalize permutation
   void sortloops();
@@ -113,35 +114,34 @@ private:
 //------------------------------------------------------------------------------
 
 template <typename T>
-bool operator == (const Permutation<T>& lhs, const Permutation<T>& rhs) {
+bool operator==(const Permutation<T> &lhs, const Permutation<T> &rhs) {
   return lhs.equals(rhs);
 }
 
 template <typename T>
-bool operator < (const Permutation<T>& lhs, const Permutation<T>& rhs) {
+bool operator<(const Permutation<T> &lhs, const Permutation<T> &rhs) {
   return lhs.less(rhs);
 }
 
 template <typename T>
-bool operator != (const Permutation<T>& lhs, const Permutation<T>& rhs) {
+bool operator!=(const Permutation<T> &lhs, const Permutation<T> &rhs) {
   return !operator==(lhs, rhs);
 }
 
 template <typename T>
-static inline ostream& operator<<(ostream& os, const Permutation<T>& rhs) {
+static inline ostream &operator<<(ostream &os, const Permutation<T> &rhs) {
   rhs.dump(os);
   return os;
 }
 
 template <typename T>
-Permutation<T> product(const Permutation<T>& lhs, const Permutation<T>& rhs) {
+Permutation<T> product(const Permutation<T> &lhs, const Permutation<T> &rhs) {
   Permutation<T> retval = lhs;
   retval.rmul(rhs);
   return retval;
 }
 
-template <typename T>
-Permutation<T> invert(Permutation<T> lhs) {
+template <typename T> Permutation<T> invert(Permutation<T> lhs) {
   lhs.inverse();
   return lhs;
 }
@@ -152,10 +152,9 @@ Permutation<T> invert(Permutation<T> lhs) {
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-Permutation<T>::Permutation () {
+template <typename T> Permutation<T>::Permutation() {
   for (auto x = T::start; x <= T::fin; ++x)
-    loops_.push_back(PermLoop<T> {x});
+    loops_.push_back(PermLoop<T>{x});
   sortloops();
 #ifdef CHECKS
   check();
@@ -164,8 +163,7 @@ Permutation<T>::Permutation () {
 
 template <typename T>
 template <typename RandIt>
-Permutation<T>::Permutation (RandIt ibeg, RandIt ifin)   
-{
+Permutation<T>::Permutation(RandIt ibeg, RandIt ifin) {
   simplify_loops(ibeg, ifin, back_inserter(loops_));
   sortloops();
 #ifdef CHECKS
@@ -179,23 +177,21 @@ Permutation<T>::Permutation (RandIt ibeg, RandIt ifin)
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-T Permutation<T>::apply(T elem) const {
+template <typename T> T Permutation<T>::apply(T elem) const {
   T res = move(elem);
   for (auto &ploop : loops_)
     res = ploop.apply(res);
   return res;
 }
 
-template <typename T>
-bool Permutation<T>::contains(T elem) const {
-  auto it = find_if(loops_.begin(), loops_.end(), 
-                    [elem](const PermLoop<T>& pl) { return pl.contains(elem); });
+template <typename T> bool Permutation<T>::contains(T elem) const {
+  auto it =
+      find_if(loops_.begin(), loops_.end(),
+              [elem](const PermLoop<T> &pl) { return pl.contains(elem); });
   return (it != loops_.end());
 }
 
-template <typename T>
-void Permutation<T>::dump(ostream& os) const {
+template <typename T> void Permutation<T>::dump(ostream &os) const {
   for (auto l : loops_)
     l.dump(os);
 }
@@ -207,7 +203,7 @@ void Permutation<T>::dump(ostream& os) const {
 //------------------------------------------------------------------------------
 
 template <typename T>
-Permutation<T>& Permutation<T>::lmul(const Permutation<T> &input) {
+Permutation<T> &Permutation<T>::lmul(const Permutation<T> &input) {
   loops_.insert(loops_.begin(), input.loops_.begin(), input.loops_.end());
   vector<PermLoop<T>> outloops;
   simplify_loops(loops_.begin(), loops_.end(), back_inserter(outloops));
@@ -220,7 +216,7 @@ Permutation<T>& Permutation<T>::lmul(const Permutation<T> &input) {
 }
 
 template <typename T>
-Permutation<T>& Permutation<T>::rmul(const Permutation<T> &input) {
+Permutation<T> &Permutation<T>::rmul(const Permutation<T> &input) {
   loops_.insert(loops_.end(), input.loops_.begin(), input.loops_.end());
   vector<PermLoop<T>> outloops;
   simplify_loops(loops_.begin(), loops_.end(), back_inserter(outloops));
@@ -238,12 +234,11 @@ Permutation<T>& Permutation<T>::rmul(const Permutation<T> &input) {
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-void Permutation<T>::check() {
-  if (T::start_ >= T::fin_) 
+template <typename T> void Permutation<T>::check() {
+  if (T::start_ >= T::fin_)
     throw runtime_error("Domain error");
 
-  if (loops_.empty()) 
+  if (loops_.empty())
     throw runtime_error("Empty permutation");
 
   for (auto x = T::start; x <= T::fin; ++x)
@@ -258,10 +253,9 @@ void Permutation<T>::check() {
   }
 }
 
-template <typename T>
-void Permutation<T>::sortloops() {
-  sort (loops_.begin(), loops_.end(), 
-        [](const PermLoop<T>& lhs, const PermLoop<T>& rhs) {
+template <typename T> void Permutation<T>::sortloops() {
+  sort(loops_.begin(), loops_.end(),
+       [](const PermLoop<T> &lhs, const PermLoop<T> &rhs) {
     return (lhs.smallest() > rhs.smallest());
   });
 }
