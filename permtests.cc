@@ -34,6 +34,8 @@ test_loops() {
   assert(v == permuted);
   p2.apply(v.begin(), v.end());
   assert(v == initial);
+
+  return 0;
 }
 
 int
@@ -74,6 +76,8 @@ test_create_loops() {
   assert (loops4[2].size() == 1);
   assert (loops4[3].size() == 3);
   assert (loops4[4].size() == 1);
+
+  return 0;
 }
 
 int
@@ -113,6 +117,8 @@ test_simplify_loops() {
   assert(out_loops[0] == s1);
   assert(out_loops[1] == s2);
   assert(out_loops[2] == s3);
+
+  return 0;
 }
 
 int
@@ -200,6 +206,8 @@ test_simple_perms() {
   assert(product(product(u3, x1), u3) == x2);
   assert(product(product(u2, x2), u3) == x2);
   assert(product(product(u3, x2), u2) == x2);
+
+  return 0;
 }
 
 template<typename T, typename GenIT, typename OrbIt>
@@ -220,8 +228,9 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend,
 
   // 2. getting orbit with ubeta and stabilizer generators
   auto [orb, stab] = orbit_stab(elt, gbeg, gend);
-  for (auto rit = refbeg; rit != refend; ++rit)
-    if (orb.find(*rit) == orb.end()) {
+  assert (orb.size() == simple_orbit.size());
+  for (auto so: simple_orbit)
+    if (orb.find(so) == orb.end()) {
       cout << "Orbit-stabilizer not equal to reference" << endl;
       cout << "Group generators are: " << endl;
       print_simple(gbeg, gend);
@@ -230,7 +239,47 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend,
       cout << "Ref is: " << endl;      
       print_simple(refbeg, refend);
     }
+  for (auto s: stab)
+    if (s.apply(elt) != elt) {
+      cout << "incorrect stabilizer generator " << s << " not stabilizes " << elt << endl;
+      cout << "Group generators are: " << endl;
+      print_simple(gbeg, gend);     
+      cout << "Stabilizer generators are: " << endl;
+      print_simple(stab.begin(), stab.end());
+    }
+  for (auto&& [beta, xubeta]: orb)
+    if (xubeta.apply(elt) != beta) {
+      cout << " incorrect ubeta " << xubeta << " for elt " << elt << " at beta " << beta << endl;
+      cout << "Group generators are: " << endl;
+      print_simple(gbeg, gend);
+      cout << "Orbit is: " << endl;
+      print_orb(orb.begin(), orb.end());
+    }
   
+  // 3. getting orbit with shreier and stabilizer generators
+  auto [orb_s, v] = orbit_shreier(elt, gbeg, gend);
+  assert (orb_s.size() == simple_orbit.size());
+  for (auto so: simple_orbit) {
+    if (orb_s.find(so) == orb_s.end()) {
+      cout << "Orbit-stabilizer not equal to reference" << endl;
+      cout << "Group generators are: " << endl;
+      print_simple(gbeg, gend);
+      cout << "Orbit is: " << endl;
+      print_orb(orb.begin(), orb.end());
+      cout << "Ref is: " << endl;      
+      print_simple(refbeg, refend);
+    }
+    auto ueltp = ubeta(elt, so, gbeg, gend, v.begin(), v.end());
+    assert(ueltp.second);
+    auto &uelt = ueltp.first;
+    if (uelt.apply(elt) != so) {
+      cout << " incorrect uelt " << uelt << " for elt " << elt << " at so " << so << endl;    
+      cout << "Group generators are: " << endl;
+      print_simple(gbeg, gend);
+      cout << "Orbit is: " << endl;
+      print_orb(orb.begin(), orb.end());
+    }
+  }
 }
 
 int
@@ -271,6 +320,26 @@ test_simple_orbit() {
   vector<Permutation<UD5>> igens {{{1, 2, 3, 4}},
                                   {{1, 2}}};
   do_test_simple_orbit(ielt, igens.begin(), igens.end(), ref3.begin(), ref3.end());
+
+  return 0;
+}
+
+int
+test_primitive_blocks() {
+  using UD6 = UnsignedDomain<1, 6>;
+  vector<Permutation<UD6>> gens {{{1, 2, 3, 4, 5, 6}},
+                                 {{2, 6}, {3, 5}}};
+  auto bs1 = primitive_blocks(UD6{1}, UD6{3}, gens.begin(), gens.end());
+
+  vector<vector<UD6>> ref1 = {{1, 3, 5}, {2, 4, 6}};
+  assert (bs1 == ref1);
+
+  auto bs2 = primitive_blocks(UD6{1}, UD6{4}, gens.begin(), gens.end());
+
+  vector<vector<UD6>> ref2 = {{1, 4}, {2, 5}, {3, 6}};
+  assert (bs2 == ref2);
+
+  return 0;
 }
 
 int
@@ -282,6 +351,7 @@ main()
     test_simplify_loops();
     test_simple_perms();
     test_simple_orbit();
+    test_primitive_blocks();
   }
   catch(runtime_error &e) {
     cout << "Failed: " << e.what() << endl;
@@ -289,3 +359,4 @@ main()
   }
   cout << "Passed" << endl;
 }
+

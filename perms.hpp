@@ -100,10 +100,10 @@ public:
 // service functions
 private:
   // sort loops to canonicalize permutation
-  sortloops();
+  void sortloops();
 
   // enforce invariants
-  check();
+  void check();
 };
 
 //------------------------------------------------------------------------------
@@ -239,7 +239,7 @@ Permutation<T>& Permutation<T>::rmul(const Permutation<T> &input) {
 //------------------------------------------------------------------------------
 
 template <typename T>
-Permutation<T>::check() {
+void Permutation<T>::check() {
   if (T::start_ >= T::fin_) 
     throw runtime_error("Domain error");
 
@@ -259,7 +259,7 @@ Permutation<T>::check() {
 }
 
 template <typename T>
-Permutation<T>::sortloops() {
+void Permutation<T>::sortloops() {
   sort (loops_.begin(), loops_.end(), 
         [](const PermLoop<T>& lhs, const PermLoop<T>& rhs) {
     return (lhs.smallest() > rhs.smallest());

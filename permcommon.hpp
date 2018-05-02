@@ -19,6 +19,7 @@
 #include <list>
 #include <map>
 #include <numeric>
+#include <queue>
 #include <set>
 #include <sstream>
 #include <string>
@@ -41,6 +42,7 @@ using std::ostream;
 using std::ostream_iterator;
 using std::pair;
 using std::prev;
+using std::queue;
 using std::rbegin;
 using std::rend;
 using std::reverse;
@@ -50,6 +52,7 @@ using std::set;
 using std::sort;
 using std::string;
 using std::stringstream;
+using std::swap;
 using std::transform;
 using std::vector;
 
