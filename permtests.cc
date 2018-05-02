@@ -265,7 +265,7 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend, OrbIt refbeg,
       cout << "Ref is: " << endl;
       print_simple(refbeg, refend);
     }
-    auto ueltp = ubeta(elt, so, gbeg, gend, v.begin(), v.end());
+    auto ueltp = ubeta(so, gbeg, gend, v.begin(), v.end());
     assert(ueltp.second);
     auto &uelt = ueltp.first;
     if (uelt.apply(elt) != so) {

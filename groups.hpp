@@ -126,7 +126,7 @@ auto orbit_shreier(T num, RandIt gensbeg, RandIt gensend) {
 // ref: HCGT, page 80
 // restores U-beta from orbit element and shreier vector
 template <typename T, typename RandIt, typename ShreiIt>
-auto ubeta(T num, T orbelem, RandIt gensbeg, RandIt gensend, ShreiIt shrbeg,
+auto ubeta(T orbelem, RandIt gensbeg, RandIt gensend, ShreiIt shrbeg,
            ShreiIt shrend) {
   Permutation<T> res{};
   auto k = shrbeg[orbelem - T::start];
