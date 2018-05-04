@@ -65,6 +65,14 @@ public:
       l.inverse();
   }
 
+  // id permutation for this one
+  Permutation id() const {
+    Permutation tmp(*this);
+    tmp.inverse();
+    tmp.lmul(*this);
+    return tmp;
+  }
+
   // selectors
 public:
   // apply permutation to elem

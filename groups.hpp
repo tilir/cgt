@@ -46,6 +46,29 @@ template <typename BlockIt> void print_block(BlockIt gbeg, BlockIt gend) {
   cout << "]";
 }
 
+// all elements from group
+// will likely explode in egneral case, but useful for small tests
+template <typename RandIt, typename OutIt>
+size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results) {
+  auto id = gensbeg->id();
+  set<decltype(id)> next{id};
+  set<decltype(id)> total;
+  while (!next.empty()) {
+    set<decltype(id)> tmp;
+    total.insert(next.begin(), next.end());
+    for (auto&& elem : next)
+      for (auto igen = gensbeg; igen != gensend; ++igen) {
+        auto newelem = product(elem, *igen);
+        if (total.count(newelem) == 0)
+          tmp.insert(newelem);
+      }
+    next.swap(tmp);
+  }
+  for (auto&& elt: total)
+    *results++ = elt;
+  return total.size();
+}
+
 // ref: HCGT, page 78
 // calculates orbit for 'a' in compact form (i.e. as a set)
 template <typename T, typename RandIt>
@@ -209,3 +232,19 @@ auto primitive_blocks(T num1, T num2, RandIt gensbeg, RandIt gensend) {
 
   return outcv;
 }
+
+template <typename Perm, typename BaseIt, typename DeltaIt>
+auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart) {
+  auto h = g;  
+  auto dit = dstart;
+  for (auto bit = bstart; bit != bfin; ++bit, ++dit) {
+    auto beta = h.apply(*bit);
+    auto di = dit->find(beta);
+    if (di == dit->end())
+      return make_pair(h, bit);
+    assert(di->second.apply(*bit) == beta);
+    h.rmul(invert(di->second));
+  } 
+  return make_pair(h, bfin);
+}
+

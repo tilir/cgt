@@ -322,6 +322,7 @@ int test_simple_orbit() {
 }
 
 int test_primitive_blocks() {
+  cout << "Primitive block tests" << endl;
   using UD6 = UnsignedDomain<1, 6>;
   vector<Permutation<UD6>> gens{{{1, 2, 3, 4, 5, 6}}, {{2, 6}, {3, 5}}};
   auto bs1 = primitive_blocks(UD6{1}, UD6{3}, gens.begin(), gens.end());
@@ -337,6 +338,55 @@ int test_primitive_blocks() {
   return 0;
 }
 
+int test_strip() {
+  cout << "Strip tests" << endl;
+  using UD5 = UnsignedDomain<1, 5>;
+
+  Permutation<UD5> e {};
+  Permutation<UD5> a {{1, 2, 4, 3}};
+  Permutation<UD5> b {{1, 2, 5, 4}};
+  Permutation<UD5> a2 = product(a, a);
+  Permutation<UD5> ab = product(a, b);
+  Permutation<UD5> a3 = product(a2, a);
+
+  vector<Permutation<UD5>> S1 = {a, b};
+  orbit_t<UD5> Delta1 = { {1, e}, {2, a}, {4, a2}, {5, ab}, {3, a3} };
+
+  Permutation<UD5> c = product(b, invert(a));
+  Permutation<UD5> d = product(a2, b);
+  Permutation<UD5> cd = product(c, d);
+
+  vector<Permutation<UD5>> S2 = {c, d};
+  orbit_t<UD5> Delta2 = { {2, e}, {5, c}, {3, d}, {4, cd} };
+
+  set<Permutation<UD5>> all;  
+  all_elements(S1.begin(), S1.end(), std::inserter(all, all.end())); 
+  
+  vector<UD5> B = {1, 2};
+  vector<vector<Permutation<UD5>>> S = {S1, S2};
+  vector<orbit_t<UD5>> Delta = {Delta1, Delta2};
+
+  // test that all element in group stripped to end()
+  for (auto &&x : all) {
+    auto res = strip(x, B.begin(), B.end(), Delta.begin());
+    assert (res.first == x.id() && res.second == B.end());
+  }
+
+  // test that all element NOT in group stripped to something other than end()
+  vector<Permutation<UD5>> GSYM = {{{1, 2}}, {{1, 2, 3, 4, 5}}};
+  set<Permutation<UD5>> allsym;
+  all_elements(GSYM.begin(), GSYM.end(), std::inserter(allsym, allsym.end()));
+
+  for (auto &&x : allsym) {
+    if (all.count(x) != 0)
+      continue;
+    auto res = strip(x, B.begin(), B.end(), Delta.begin());
+    assert (res.first != x.id() || res.second != B.end());
+  }
+
+  return 0;
+}
+
 int main() {
   try {
     test_loops();
@@ -345,6 +395,7 @@ int main() {
     test_simple_perms();
     test_simple_orbit();
     test_primitive_blocks();
+    test_strip();
   } catch (runtime_error &e) {
     cout << "Failed: " << e.what() << endl;
     exit(-1);
