@@ -64,6 +64,9 @@ public:
   // get smallest element in loop
   T smallest() const { return loop_.front(); }
 
+  // if loop is primitive e.g. like (5)
+  bool is_primitive() const { return loop_.size() < 2; }
+
   // return true if loop contains given element
   bool contains(T x) const {
     return (find(loop_.begin(), loop_.end(), x) != loop_.end());
@@ -104,9 +107,6 @@ public:
     dump(buffer);
     return buffer.str();
   }
-
-  // return as vector
-  vector<T> to_vector() const { return loop_; }
 
   // Service functions
 private:

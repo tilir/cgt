@@ -28,6 +28,7 @@
 
 using std::cout;
 using std::endl;
+using std::exception;
 using std::find;
 using std::initializer_list;
 using std::iota;

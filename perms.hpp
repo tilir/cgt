@@ -40,6 +40,10 @@
 template <typename T> class Permutation {
   vector<PermLoop<T>> loops_;
 
+  // dependent types
+public:
+  using value_type = T;
+
   // ctors/dtors
 public:
   // id permutation over domain
@@ -66,12 +70,14 @@ public:
   }
 
   // id permutation for this one
-  Permutation id() const {
-    Permutation tmp(*this);
-    tmp.inverse();
-    tmp.lmul(*this);
-    return tmp;
-  }
+  Permutation id() const { return Permutation{}; }
+
+  // iterators on internal strucrure
+public:
+  auto begin() { return loops_.begin(); }
+  auto end() { return loops_.end(); }
+  auto rbegin() { return loops_.rbegin(); }
+  auto rend() { return loops_.rend(); }
 
   // selectors
 public:
