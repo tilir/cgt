@@ -244,9 +244,9 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend, OrbIt refbeg,
       cout << "Stabilizer generators are: " << endl;
       print_simple(stab.begin(), stab.end());
     }
-  for (auto && [ beta, xubeta ] : orb)
-    if (xubeta.apply(elt) != beta) {
-      cout << " incorrect ubeta " << xubeta << " for elt " << elt << " at beta "
+  for (auto && [ beta, u_beta ] : orb)
+    if (u_beta.apply(elt) != beta) {
+      cout << " incorrect ubeta " << u_beta << " for elt " << elt << " at beta "
            << beta << endl;
       cout << "Group generators are: " << endl;
       print_simple(gbeg, gend);
@@ -267,7 +267,7 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend, OrbIt refbeg,
       cout << "Ref is: " << endl;
       print_simple(refbeg, refend);
     }
-    auto ueltp = ubeta(so, gbeg, gend, v.begin(), v.end());
+    auto ueltp = ubeta(so, gbeg, v.begin());
     assert(ueltp.second);
     auto &uelt = ueltp.first;
     if (uelt.apply(elt) != so) {
@@ -296,7 +296,7 @@ int test_simple_orbit() {
 
   // alternating group
   UD5 aelt = 2;
-  gens_t<UD5> agens{{{1, 2}, {3, 4}}, {{2, 3}, {4, 5}}};
+  gens_t<UD5> agens{{{1, 2, 3}}, {{1, 2, 3, 4, 5}}};
   do_test_simple_orbit(aelt, agens.begin(), agens.end(), ref.begin(),
                        ref.end());
 
@@ -365,14 +365,31 @@ int test_strip() {
   all_elements(S1.begin(), S1.end(), std::inserter(all, all.end()));
 
   vector<UD5> Bref = {1, 2};
-  genset_t<UD5> S = {S1, S2};
+  genset_t<UD5> Sref = {S1, S2};
   delta_t<UD5> DeltaRef = {Delta1, Delta2};
 
   // got the same from shreier-sims
-  auto[ B, Delta ] = shreier_sims(S1.begin(), S1.end());
+  auto[ B, S, Delta ] = shreier_sims(S1.begin(), S1.end());
 
   assert(B == Bref);
   assert(Delta == DeltaRef);
+
+// TODO: a lot of excessive gens in S. Cleanup by HCGT routine?
+#if 0
+  cout << "S" << endl;
+  for (auto &&gens : S) {
+    cout << " --- " << endl;
+    for (auto &&g : gens)
+      cout << g << endl;
+  }
+
+  cout << "Sref" << endl;
+  for (auto &&gens : Sref) {
+    cout << " --- " << endl;
+    for (auto &&g : gens)
+      cout << g << endl;
+  }
+#endif
 
   // test that all element in group stripped to end()
   for (auto &&x : all) {
@@ -400,36 +417,50 @@ int test_shreier_sims() {
 
   using UD5 = UnsignedDomain<1, 5>;
 
+  // worst-case test: symmetric group
   Permutation<UD5> a{{1, 2}};
   Permutation<UD5> b{{1, 2, 3, 4, 5}};
+  gens_t<UD5> sgens = {a, b};
+  auto[ B, S, Delta ] = shreier_sims(sgens.begin(), sgens.end());
+  auto[ Bv, Sv, DeltaV, V] = shreier_sims_sv(sgens.begin(), sgens.end());
 
-  gens_t<UD5> S1 = {a, b};
+  assert(B.size() == 4);
+  assert(Bv.size() == 4);
 
-  // worst-case test: symmetric group
-  auto[ B, Delta ] = shreier_sims(S1.begin(), S1.end());  
+  // now we can get order of group as product of Deltas
+  size_t gorder = 1;
+  for (auto &&d : Delta)
+    gorder *= d.size();
 
-  assert (B.size() == 4);  
+  // Sym(5) size is 120
+  assert(gorder == 120);
 
-  // to look at worst-case Delta
-#ifdef SHOWSYM
-  cout << "B: " << endl;
-  for (auto b : B) 
-    cout << b << endl;
+  // cyclic group has size 5
+  Permutation<UD5> c{{1, 2, 3, 4, 5}};
+  gens_t<UD5> cgens = {c};
+  auto[ B2, S2, Delta2 ] = shreier_sims(cgens.begin(), cgens.end());
+  assert(B2.size() == 1);
+  assert(Delta2.size() == 1);
+  assert(Delta2[0].size() == 5);
 
-  cout << "Delta: " << endl;
-  for (auto &&d : Delta) {
-    cout << "---" << endl;
-    for (auto &&dx : d) 
-      cout << dx.first << ": " << dx.second << endl;
-  }
-#endif
+  // alternating group
+  gens_t<UD5> agens{{{1, 2, 3}}, {{1, 2, 3, 4, 5}}};
+  auto[ BA, SA, DeltaA ] = shreier_sims(agens.begin(), agens.end());
+  assert(BA.size() == 3);
+
+  gorder = 1;
+  for (auto &&d : DeltaA)
+    gorder *= d.size();
+
+  // Alt(5) size is 60
+  assert(gorder == 60);
 
   set<Permutation<UD5>> allsym;
-  all_elements(S1.begin(), S1.end(), std::inserter(allsym, allsym.end()));
+  all_elements(agens.begin(), agens.end(), std::inserter(allsym, allsym.end()));
 
   for (auto &&x : allsym) {
-    auto res = strip(x, B.begin(), B.end(), Delta.begin());
-    assert(res.first == x.id() && res.second == B.end());
+    auto res = strip(x, BA.begin(), BA.end(), DeltaA.begin());
+    assert(res.first == x.id() && res.second == BA.end());
   }
 
   return 0;

@@ -28,6 +28,9 @@ template <typename T> using genset_t = vector<gens_t<T>>;
 // orbits of BSGS
 template <typename T> using delta_t = vector<orbit_t<T>>;
 
+// compact orbits for BSGS with sv
+template <typename T> using compact_delta_t = vector<compact_orbit_t<T>>;
+
 // shreier vector definition:
 // v[num] = -1
 // v[elt not in num orbit] = 0
@@ -50,6 +53,20 @@ template <typename BlockIt> void print_block(BlockIt gbeg, BlockIt gend) {
   for (auto git = gbeg; git != gend; ++git)
     cout << *git << ((git != prev(gend)) ? " " : "");
   cout << "]";
+}
+
+template <typename BaseIt, typename DeltaIt>
+void print_B_Delta(BaseIt bbeg, BaseIt bend, DeltaIt dbeg, DeltaIt dend) {
+  cout << "B: " << endl;
+  for (auto b = bbeg; b != bend; ++b)
+    cout << *b << endl;
+
+  cout << "Delta: " << endl;
+  for (auto d = dbeg; d != dend; ++d) {
+    cout << "---" << endl;
+    for (auto &&dx : *d)
+      cout << dx.first << ": " << dx.second << endl;
+  }
 }
 
 // all elements from group
@@ -155,8 +172,7 @@ auto orbit_shreier(T num, RandIt gensbeg, RandIt gensend) {
 // ref: HCGT, page 80
 // restores U-beta from orbit element and shreier vector
 template <typename T, typename RandIt, typename ShreiIt>
-auto ubeta(T orbelem, RandIt gensbeg, RandIt gensend, ShreiIt shrbeg,
-           ShreiIt shrend) {
+auto ubeta(T orbelem, RandIt gensbeg, ShreiIt shrbeg) {
   Permutation<T> res{};
   auto k = shrbeg[orbelem - T::start];
   if (k == 0)
@@ -258,9 +274,29 @@ auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart) {
   return make_pair(h, bfin);
 }
 
+// alternative strip with compact orbits and shreier vectors
+template <typename Perm, typename BaseIt, typename DeltaIt, typename GenIt,
+          typename ShreiIt>
+auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart, GenIt gstart,
+           ShreiIt vstart) {
+  auto h = g;
+  auto dit = dstart;
+  auto git = gstart;
+  auto vit = vstart;
+  for (auto bit = bstart; bit != bfin; ++bit, ++dit, ++git, ++vit) {
+    auto beta = h.apply(*bit);
+    if (dit->count(beta) == 0)
+      return make_pair(h, bit);
+    auto[ u_beta, istriv ] = ubeta(beta, git->begin(), vit->begin());
+    assert(u_beta.apply(*bit) == beta);
+    h.rmul(invert(u_beta)); // h = h * (ui)^(-1)
+  }
+  return make_pair(h, bfin);
+}
+
 // ref: HCGT, page 91
 // takes generators g[0] .. g[s]
-// returns (B, Delta*) where
+// returns (B, S, Delta*) where
 // B = {b[1] .. b[k]} is base set (i.e. none of g[.] fixes all of B)
 // Define: Gi = Stab(G, b[1], .. b[i-1]), G1 = G, G2 fixes b1, etc...
 // S is strong generating set {S1 .. Sk} if Si == Gi
@@ -302,18 +338,18 @@ template <typename RandIt> auto shreier_sims(RandIt gensbeg, RandIt gensend) {
   while (i >= 1) {
     bool globalcont = false;
 
-    for (auto && [ beta, ubeta ] : DeltaStar[i - 1]) {
-      assert(ubeta.apply(B[i - 1]) == beta);
+    for (auto && [ beta, u_beta ] : DeltaStar[i - 1]) {
+      assert(u_beta.apply(B[i - 1]) == beta);
       for (auto &&x : S[i - 1]) {
-        auto ub_x = product(ubeta, x);
+        auto ub_x = product(u_beta, x);
         auto u_bx = DeltaStar[i - 1][x.apply(beta)];
         if (ub_x != u_bx) {
-          bool y = true;
+          bool need_recalc_orbit = false;
           auto newgen = product(ub_x, invert(u_bx));
           auto[ h, itj ] = strip(newgen, B.begin(), B.end(), DeltaStar.begin());
           size_t j = itj - B.begin() + 1;
           if ((itj != B.end()) || (h != h.id()))
-            y = false;
+            need_recalc_orbit = true;
           if ((itj == B.end()) && (h != h.id())) {
             // looking for elt, moved by h
             auto itnonprim =
@@ -332,7 +368,7 @@ template <typename RandIt> auto shreier_sims(RandIt gensbeg, RandIt gensend) {
           }
 
           // check do we need to update Delta
-          if (y == false) {
+          if (need_recalc_orbit) {
             for (size_t l = i; l <= j; ++l) {
               assert(l <= S.size());
               S[l - 1].push_back(h);
@@ -357,6 +393,111 @@ template <typename RandIt> auto shreier_sims(RandIt gensbeg, RandIt gensend) {
     i -= 1;
   }
 
-  return make_pair(B, DeltaStar);
+  return make_tuple(B, S, DeltaStar);
 }
 
+// alternative implementation with shreier vectors
+template <typename RandIt>
+auto shreier_sims_sv(RandIt gensbeg, RandIt gensend) {
+  using T = typename RandIt::value_type::value_type;
+  genset_t<T> S;
+  vector<T> B;
+  compact_delta_t<T> DeltaStar;
+  vector<shreier_t> VStar;
+
+  // in terms of book, S1 = S
+  S.emplace_back(gensbeg, gensend);
+
+  // looking for first base element. It shall not be fixed by all generators
+  for (auto b = T::start; b <= T::fin; ++b)
+    if (find_if(gensbeg, gensend, [b](const auto &elt) {
+          return elt.apply(b) == b;
+        }) == gensend) {
+      B.push_back(b);
+      break;
+    }
+
+  if (B.empty())
+    throw logic_error("Domain for Schreier-Sims shall have at least one element"
+                      " not fixed by all generators");
+
+  size_t k = B.size();
+  assert(k == S.size());
+
+  // TODO: we may extend algorith to start from non-void B, but not now
+  assert(k == 1);
+
+  auto[ Delta1, V1 ] =
+      orbit_shreier(B[k - 1], S[k - 1].begin(), S[k - 1].end());
+  DeltaStar.push_back(Delta1);
+  VStar.push_back(V1);
+
+  size_t i = k;
+
+  while (i >= 1) {
+    bool globalcont = false;
+
+    for (auto beta : DeltaStar[i - 1]) {
+      auto[ u_beta, ntriv ] =
+          ubeta(beta, S[i - 1].begin(), VStar[i - 1].begin());
+      assert(u_beta.apply(B[i - 1]) == beta);
+      for (auto &&x : S[i - 1]) {
+        auto ub_x = product(u_beta, x);
+        auto[ u_bx, ntriv2 ] =
+            ubeta(x.apply(beta), S[i - 1].begin(), VStar[i - 1].begin());
+        if (ub_x != u_bx) {
+          bool need_recalc_orbit = false;
+          auto newgen = product(ub_x, invert(u_bx));
+          auto[ h, itj ] = strip(newgen, B.begin(), B.end(), DeltaStar.begin(),
+                                 S.begin(), VStar.begin());
+
+          size_t j = itj - B.begin() + 1;
+          if ((itj != B.end()) || (h != h.id()))
+            need_recalc_orbit = true;
+          if ((itj == B.end()) && (h != h.id())) {
+            // looking for elt, moved by h
+            auto itnonprim =
+                find_if(h.rbegin(), h.rend(),
+                        [](const auto &elt) { return !elt.is_primitive(); });
+            assert(itnonprim != h.rend());
+            auto gamma = itnonprim->smallest();
+
+            if (find(B.begin(), B.end(), gamma) != B.end())
+              throw logic_error("Can not add duplicating gamma");
+
+            B.push_back(gamma);
+            S.push_back({});
+            DeltaStar.push_back({});
+            VStar.push_back({});
+            k = k + 1;
+          }
+
+          // check do we need to update Delta
+          if (need_recalc_orbit) {
+            for (size_t l = i; l <= j; ++l) {
+              assert(l <= S.size());
+              S[l - 1].push_back(h);
+              auto[ Deltal, Vl ] =
+                  orbit_shreier(B[l - 1], S[l - 1].begin(), S[l - 1].end());
+
+              DeltaStar[l - 1] = Deltal;
+              VStar[l - 1] = Vl;
+            }
+            i = j;
+            globalcont = true;
+            break;
+          }
+        }
+      }
+      if (globalcont)
+        break;
+    }
+
+    if (globalcont)
+      continue;
+
+    i -= 1;
+  }
+
+  return make_tuple(B, S, DeltaStar, VStar);
+}

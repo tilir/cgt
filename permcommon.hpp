@@ -35,6 +35,7 @@ using std::iota;
 using std::logic_error;
 using std::make_pair;
 using std::make_reverse_iterator;
+using std::make_tuple;
 using std::map;
 using std::min_element;
 using std::move;
