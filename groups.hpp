@@ -70,7 +70,7 @@ void print_B_Delta(BaseIt bbeg, BaseIt bend, DeltaIt dbeg, DeltaIt dend) {
 }
 
 // all elements from group
-// will likely explode in egneral case, but useful for small tests
+// will likely explode in general case, but useful for small tests
 template <typename RandIt, typename OutIt>
 size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results) {
   auto id = gensbeg->id();
@@ -103,11 +103,9 @@ auto orbit(T num, RandIt gensbeg, RandIt gensend) {
     vector<T> tmp{};
     Delta.insert(DeltaNext.begin(), DeltaNext.end());
     for (auto elem : DeltaNext)
-      for (auto igen = gensbeg; igen != gensend; ++igen) {
-        auto newelem = igen->apply(elem);
-        if (Delta.count(newelem) == 0)
+      for (auto igen = gensbeg; igen != gensend; ++igen)
+        if (auto newelem = igen->apply(elem); Delta.count(newelem) == 0)
           tmp.push_back(newelem);
-      }
     DeltaNext.swap(tmp);
   }
 
@@ -155,14 +153,12 @@ auto orbit_shreier(T num, RandIt gensbeg, RandIt gensend) {
     vector<T> tmp{};
     Delta.insert(DeltaNext.begin(), DeltaNext.end());
     for (auto elem : DeltaNext)
-      for (auto igen = gensbeg; igen != gensend; ++igen) {
-        auto genidx = igen - gensbeg;
-        auto newelem = igen->apply(elem);
-        if (Delta.count(newelem) == 0) {
+      for (auto igen = gensbeg; igen != gensend; ++igen)        
+        if (auto newelem = igen->apply(elem); Delta.count(newelem) == 0) {
+          auto genidx = igen - gensbeg;
           tmp.push_back(newelem);
           v[newelem - T::start] = genidx + 1;
         }
-      }
     DeltaNext.swap(tmp);
   }
 
@@ -294,6 +290,57 @@ auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart, GenIt gstart,
   return make_pair(h, bfin);
 }
 
+// shreier-sims subroutine. Try to strip generator, 
+// then decide do we need to extend base and/or recalculate BSGS
+template <typename Gen, typename BaseIt, typename DeltaIt>
+auto try_newgen(Gen newgen, BaseIt bstart, BaseIt bfin, DeltaIt dstart) {
+  using T = typename BaseIt::value_type; 
+  bool need_recalc_orbit = false;
+  bool need_extend_base = false;
+  T gamma;
+
+  auto[ h, itj ] = strip(newgen, bstart, bfin, dstart);
+  size_t newidx = itj - bstart;
+  if ((itj == bfin) && (h != h.id())) {
+    need_extend_base = true;
+    // looking for elt, moved by h
+    auto itnonprim = find_if(h.rbegin(), h.rend(),
+      [](const auto &elt) { return !elt.is_primitive(); });
+    assert(itnonprim != h.rend());
+    gamma = itnonprim->smallest();
+
+    if (find(bstart, bfin, gamma) != bfin)
+      throw logic_error("Can not add duplicating gamma");
+  }
+
+  if ((itj != bfin) || need_extend_base)
+    need_recalc_orbit = true;
+
+  return make_tuple(need_recalc_orbit, need_extend_base, gamma, newidx, h);
+}
+
+// HEART OF SHREIER-SIMS
+// finding way to extend/update B and S by stripping current BSGS
+template <typename BaseIt, typename SetIt, typename DeltaIt>
+auto extend_base(size_t curidx, BaseIt Base, BaseIt BaseEnd, SetIt Gens, DeltaIt Delta) {
+  for (auto && [ beta, u_beta ] : Delta[curidx]) {
+    assert(u_beta.apply(Base[curidx]) == beta);
+    for (auto &&x : Gens[curidx]) {
+      auto ub_x = product(u_beta, x);
+      auto u_bx = Delta[curidx][x.apply(beta)];
+      if (ub_x != u_bx) {
+        auto newgen = product(ub_x, invert(u_bx));  
+        auto [recalc, extend, gamma, newidx, h] = 
+          try_newgen(newgen, Base, BaseEnd, Delta);
+        if (recalc)
+          return make_tuple(true, extend, newidx, gamma, h);
+      }
+    }
+  }
+
+  return make_tuple(false, false, 0u, typename BaseIt::value_type{}, Gens[curidx][0].id());
+}
+
 // ref: HCGT, page 91
 // takes generators g[0] .. g[s]
 // returns (B, S, Delta*) where
@@ -324,73 +371,40 @@ template <typename RandIt> auto shreier_sims(RandIt gensbeg, RandIt gensend) {
     throw logic_error("Domain for Schreier-Sims shall have at least one element"
                       " not fixed by all generators");
 
-  size_t k = B.size();
-  assert(k == S.size());
-
   // TODO: we may extend algorith to start from non-void B, but not now
-  assert(k == 1);
+  assert(B.size() == S.size());
+  assert(B.size() == 1);
 
-  auto[ Delta1, G1 ] = orbit_stab(B[k - 1], S[k - 1].begin(), S[k - 1].end());
-  DeltaStar.push_back(Delta1);
+  auto[ Delta0, G0 ] = orbit_stab(B[0], S[0].begin(), S[0].end());
+  DeltaStar.push_back(Delta0);
 
-  size_t i = k;
+  int curidx = static_cast<int>(B.size() - 1);
 
-  while (i >= 1) {
-    bool globalcont = false;
+  while (curidx != -1) {
+    auto [succ, extend, newidx, gamma, h] = 
+      extend_base(curidx, B.begin(), B.end(), S.begin(), DeltaStar.begin());
 
-    for (auto && [ beta, u_beta ] : DeltaStar[i - 1]) {
-      assert(u_beta.apply(B[i - 1]) == beta);
-      for (auto &&x : S[i - 1]) {
-        auto ub_x = product(u_beta, x);
-        auto u_bx = DeltaStar[i - 1][x.apply(beta)];
-        if (ub_x != u_bx) {
-          bool need_recalc_orbit = false;
-          auto newgen = product(ub_x, invert(u_bx));
-          auto[ h, itj ] = strip(newgen, B.begin(), B.end(), DeltaStar.begin());
-          size_t j = itj - B.begin() + 1;
-          if ((itj != B.end()) || (h != h.id()))
-            need_recalc_orbit = true;
-          if ((itj == B.end()) && (h != h.id())) {
-            // looking for elt, moved by h
-            auto itnonprim =
-                find_if(h.rbegin(), h.rend(),
-                        [](const auto &elt) { return !elt.is_primitive(); });
-            assert(itnonprim != h.rend());
-            auto gamma = itnonprim->smallest();
-
-            if (find(B.begin(), B.end(), gamma) != B.end())
-              throw logic_error("Can not add duplicating gamma");
-
-            B.push_back(gamma);
-            S.push_back({});
-            DeltaStar.push_back({});
-            k = k + 1;
-          }
-
-          // check do we need to update Delta
-          if (need_recalc_orbit) {
-            for (size_t l = i; l <= j; ++l) {
-              assert(l <= S.size());
-              S[l - 1].push_back(h);
-              auto[ Deltal, Gl ] =
-                  orbit_stab(B[l - 1], S[l - 1].begin(), S[l - 1].end());
-
-              DeltaStar[l - 1] = Deltal;
-            }
-            i = j;
-            globalcont = true;
-            break;
-          }
-        }
+    if (succ) {
+      if (extend) {
+        assert(newidx == S.size());
+        B.push_back(gamma);
+        S.push_back({});
+        DeltaStar.push_back({});
       }
-      if (globalcont)
-        break;
+
+      assert(newidx < S.size());
+      for (size_t l = curidx; l <= newidx; ++l) {
+        S[l].push_back(h);
+        auto[ Deltal, Gl ] =
+            orbit_stab(B[l], S[l].begin(), S[l].end());
+
+        DeltaStar[l] = Deltal;
+      }
+      curidx = newidx;
+      continue;
     }
 
-    if (globalcont)
-      continue;
-
-    i -= 1;
+    curidx -= 1;
   }
 
   return make_tuple(B, S, DeltaStar);
