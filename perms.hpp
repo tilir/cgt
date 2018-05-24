@@ -31,6 +31,8 @@
 #include "permcommon.hpp"
 #include "permloops.hpp"
 
+namespace permutations {
+
 //------------------------------------------------------------------------------
 //
 // Permutation template
@@ -270,8 +272,10 @@ template <typename T> void Permutation<T>::check() {
 template <typename T> void Permutation<T>::sortloops() {
   sort(loops_.begin(), loops_.end(),
        [](const PermLoop<T> &lhs, const PermLoop<T> &rhs) {
-    return (lhs.smallest() > rhs.smallest());
-  });
+         return (lhs.smallest() > rhs.smallest());
+       });
 }
+
+} // namespace permutations
 
 #endif

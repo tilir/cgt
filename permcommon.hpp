@@ -12,10 +12,12 @@
 #ifndef PERMCOMMON_GUARD_
 #define PERMCOMMON_GUARD_
 
-#include <cassert>
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <list>
 #include <map>
 #include <numeric>
@@ -23,9 +25,11 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <tuple>
+#include <vector>
 
+using std::array;
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::exception;

@@ -29,6 +29,8 @@
 
 #include "permcommon.hpp"
 
+namespace permutations {
+
 //------------------------------------------------------------------------------
 //
 // Permloop template
@@ -169,8 +171,7 @@ void simplify_loops(RandIt tbeg, RandIt tend, OutIt lbeg);
 //------------------------------------------------------------------------------
 
 template <typename T>
-PermLoop<T>::PermLoop(initializer_list<T> ls)
-    : loop_(ls) {
+PermLoop<T>::PermLoop(initializer_list<T> ls) : loop_(ls) {
   reroll();
 #ifdef CHECKS
   check();
@@ -180,8 +181,7 @@ PermLoop<T>::PermLoop(initializer_list<T> ls)
 // from begin-end range (vector, list, etc)
 template <typename T>
 template <typename FwdIter>
-PermLoop<T>::PermLoop(FwdIter b, FwdIter e)
-    : loop_(b, e) {
+PermLoop<T>::PermLoop(FwdIter b, FwdIter e) : loop_(b, e) {
   reroll();
 #ifdef CHECKS
   check();
@@ -323,5 +323,7 @@ void simplify_loops(RandIt tbeg, RandIt tend, OutIt lbeg) {
     loopit->apply(table.begin(), table.end());
   create_loops(table.begin(), table.end(), lbeg);
 }
+
+} // namespace permutations
 
 #endif
