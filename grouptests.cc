@@ -74,7 +74,10 @@ template <template <class, class> class OrbT> int test_strip() {
     simple_check(Delta[i].size() == DeltaRef[i].size());
     for (auto beta : Delta[i]) {
       auto u_beta = Delta[i].ubeta(beta);
-      simple_check(DeltaRef[i][beta] == u_beta);
+
+      // we do not need DeltaRef[i][beta] to be exactly u_beta
+      // really we need only B[i] -> beta to be correct
+      simple_check(DeltaRef[i][beta].apply(B[i]) == u_beta.apply(B[i]));
     }
   }
 
@@ -175,11 +178,8 @@ int main() {
     test_strip<DirectOrbit>();
     test_shreier_sims<DirectOrbit>();
 
-    // TODO: tests are failing with ShreierOrbit
-#if 0
     test_strip<ShreierOrbit>();
     test_shreier_sims<ShreierOrbit>();
-#endif
   } catch (exception &e) {
     cout << "Failed: " << e.what() << endl;
     exit(-1);

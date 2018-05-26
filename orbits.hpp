@@ -31,7 +31,6 @@ class DirectOrbit {
   using iter_t = typename map<T, Permutation<T>>::iterator;
 
   T elt_;
-  GenIter gbeg_, gend_;
   map<T, Permutation<T>> orb_;
   set<Permutation<T>> stab_;
 
@@ -65,7 +64,7 @@ public:
 
 template <typename T, typename GenIter>
 DirectOrbit<T, GenIter>::DirectOrbit(T num, GenIter gensbeg, GenIter gensend)
-    : elt_(num), gbeg_(gensbeg), gend_(gensend) {
+    : elt_(num) {
   map<T, Permutation<T>> next{{num, {}}};
   while (!next.empty()) {
     map<T, Permutation<T>> tmp{};
@@ -111,12 +110,12 @@ template <typename T,
           typename GenIter = typename vector<Permutation<T>>::iterator>
 class ShreierOrbit {
   T elt_;
-  GenIter gbeg_, gend_;
+  vector<Permutation<T>> gens; // we shall store gens for ubeta
   set<T> orb_;
   shreier_t v_;
 
 public:
-  ShreierOrbit() = default;
+  // ShreierOrbit() = default;
   ShreierOrbit(T num, GenIter gensbeg, GenIter gensend);
   auto begin() { return orb_.begin(); }
   auto end() { return orb_.end(); }
@@ -128,7 +127,7 @@ public:
 
 template <typename T, typename GenIter>
 ShreierOrbit<T, GenIter>::ShreierOrbit(T num, GenIter gensbeg, GenIter gensend)
-    : elt_(num), gbeg_(gensbeg), gend_(gensend) {
+    : elt_(num), gens(gensbeg, gensend) {
   vector<T> next{num};
   v_.resize(T::fin - T::start + 1);
   v_[num - T::start] = -1;
@@ -158,9 +157,12 @@ auto ShreierOrbit<T, GenIter>::ubeta(T orbelem) {
 
   while (k != -1) {
     assert(k != 0); // we can not normally go away from orbit unwinding
-    res.lmul(gbeg_[k - 1]);
-    auto invgen = invert(gbeg_[k - 1]);
-    orbelem = invgen.apply(orbelem);
+    auto gen = gens[k - 1];
+    res.lmul(gen);
+    gen.inverse();
+    auto neworbelem = gen.apply(orbelem);
+    assert(orbelem != neworbelem); // we can not loop forever
+    orbelem = neworbelem;
     k = v_[orbelem - T::start];
   }
   return res;

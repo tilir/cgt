@@ -180,7 +180,7 @@ auto extend_base(size_t curidx, BaseIt Base, BaseIt BaseEnd, SetIt Gens,
     }
   }
 
-  return make_tuple(false, false, 0u, typename BaseIt::value_type{},
+  return make_tuple(false, false, size_t(0), typename BaseIt::value_type{},
                     Gens[curidx][0].id());
 }
 
@@ -227,25 +227,31 @@ auto shreier_sims(RandIt gensbeg, RandIt gensend) {
     auto[succ, extend, newidx, gamma, h] =
         extend_base(curidx, B.begin(), B.end(), S.begin(), DeltaStar.begin());
 
-    if (succ) {
-      if (extend) {
-        assert(newidx == S.size());
-        B.push_back(gamma);
-        S.push_back({});
-        DeltaStar.push_back({});
-      }
-
-      assert(newidx < S.size());
-      for (size_t l = curidx; l <= newidx; ++l) {
-        S[l].push_back(h);
-        OrbT<T, RandIt> Deltal(B[l], S[l].begin(), S[l].end());
-        DeltaStar[l] = move(Deltal);
-      }
-      curidx = newidx;
+    if (!succ) {
+      curidx -= 1;
       continue;
     }
+   
+    if ((!extend && (newidx == S.size())) || (newidx > S.size()))
+      throw runtime_error("Orbit extended beyond possible");
 
-    curidx -= 1;
+    for (size_t l = curidx; l <= newidx; ++l) {
+      if (extend && (l == newidx)) {
+        assert(newidx == S.size());
+        B.push_back(gamma);
+        S.push_back({h});
+        DeltaStar.emplace_back(B[l], S[l].begin(), S[l].end());
+        continue;
+      }
+
+      // TODO: this recalc looks extremely expensive
+      //       it shall be cheaper
+      S[l].push_back(h);
+      OrbT<T, RandIt> Deltal(B[l], S[l].begin(), S[l].end());
+      DeltaStar[l] = move(Deltal);
+    }
+
+    curidx = newidx;
   }
 
   return make_tuple(B, S, DeltaStar);
