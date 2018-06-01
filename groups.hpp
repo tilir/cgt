@@ -11,10 +11,9 @@
 
 #include "orbits.hpp"
 
-namespace groups {
+using groupgens::gens_t;
 
-// generators for permutation group
-template <typename T> using gens_t = vector<Permutation<T>>;
+namespace groups {
 
 // generating sets for chain of groups
 template <typename T> using gensets_t = vector<gens_t<T>>;
@@ -33,11 +32,9 @@ size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results) {
     set<decltype(id)> tmp;
     total.insert(next.begin(), next.end());
     for (auto &&elem : next)
-      for (auto igen = gensbeg; igen != gensend; ++igen) {
-        auto newelem = product(elem, *igen);
-        if (total.count(newelem) == 0)
+      for (auto igen = gensbeg; igen != gensend; ++igen)
+        if (auto newelem = product(elem, *igen); total.count(newelem) == 0)
           tmp.insert(newelem);
-      }
     next.swap(tmp);
   }
   for (auto &&elt : total)
@@ -192,12 +189,12 @@ auto extend_base(size_t curidx, BaseIt Base, BaseIt BaseEnd, SetIt Gens,
 // S is strong generating set {S1 .. Sk} if Si == Gi
 // Delta* is set of orbits Delta[i] as map { elt => gen }
 //        each Delta[i] is orbit of b[i] in <S[i]>
-template <template <class, class> class OrbT, typename RandIt>
+template <template <class> class OrbT, typename RandIt>
 auto shreier_sims(RandIt gensbeg, RandIt gensend) {
   using T = typename RandIt::value_type::value_type;
   gensets_t<T> S;
   vector<T> B;
-  vector<OrbT<T, RandIt>> DeltaStar;
+  vector<OrbT<T>> DeltaStar;
 
   // in terms of book, S1 = S
   S.emplace_back(gensbeg, gensend);
@@ -231,7 +228,7 @@ auto shreier_sims(RandIt gensbeg, RandIt gensend) {
       curidx -= 1;
       continue;
     }
-   
+
     if ((!extend && (newidx == S.size())) || (newidx > S.size()))
       throw runtime_error("Orbit extended beyond possible");
 
@@ -244,11 +241,9 @@ auto shreier_sims(RandIt gensbeg, RandIt gensend) {
         continue;
       }
 
-      // TODO: this recalc looks extremely expensive
-      //       it shall be cheaper
+      // extend orbit if required
       S[l].push_back(h);
-      OrbT<T, RandIt> Deltal(B[l], S[l].begin(), S[l].end());
-      DeltaStar[l] = move(Deltal);
+      DeltaStar[l].extend_orbit(h);
     }
 
     curidx = newidx;

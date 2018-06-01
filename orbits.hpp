@@ -12,12 +12,14 @@
 // 3. contains: if orbit contains element
 // 4. size: size of orbit
 // 5. dump: pretty-print orbit
+// 6. extend_orbit: extends orbit (takes extended generators set)
 //
 //------------------------------------------------------------------------------
 
 #ifndef ORBITS_GUARD__
 #define ORBITS_GUARD__
 
+#include "groupgens.hpp"
 #include "perms.hpp"
 
 using permutations::Permutation;
@@ -25,14 +27,12 @@ using permutations::Permutation;
 namespace orbits {
 
 // orbit, storing all generators along with elements
-template <typename T,
-          typename GenIter = typename vector<Permutation<T>>::iterator>
-class DirectOrbit {
+template <typename T> class DirectOrbit {
   using iter_t = typename map<T, Permutation<T>>::iterator;
 
   T elt_;
   map<T, Permutation<T>> orb_;
-  set<Permutation<T>> stab_;
+  set<Permutation<T>> gens_;
 
   struct PartialIt {
     iter_t cur_;
@@ -52,39 +52,42 @@ class DirectOrbit {
   };
 
 public:
-  DirectOrbit() = default;
-  DirectOrbit(T num, GenIter gensbeg, GenIter gensend);
+  template <typename GenIter>
+  DirectOrbit(T num, GenIter gensbeg, GenIter gensend) : elt_(num) {
+    orb_.insert({num, {}});
+    gens_.insert(gensbeg, gensend);
+    extend_orbit();
+  }
+
+  void extend_orbit();
+  void extend_orbit(const Permutation<T> &newgen) {
+    auto oldsize = gens_.size();
+    gens_.insert(newgen);
+    if (oldsize != gens_.size())
+      extend_orbit();
+  }
   auto begin() { return PartialIt{orb_.begin()}; }
   auto end() { return PartialIt{orb_.end()}; }
   auto size() const { return orb_.size(); }
-  bool contains(const T &x) { return orb_.find(x) != orb_.end(); }
+  bool contains(const T &x) const { return orb_.find(x) != orb_.end(); }
   auto ubeta(T x) { return orb_[x]; }
   ostream &dump(ostream &os);
 };
 
-template <typename T, typename GenIter>
-DirectOrbit<T, GenIter>::DirectOrbit(T num, GenIter gensbeg, GenIter gensend)
-    : elt_(num) {
-  map<T, Permutation<T>> next{{num, {}}};
+template <typename T> void DirectOrbit<T>::extend_orbit() {
+  map<T, Permutation<T>> next = orb_;
   while (!next.empty()) {
     map<T, Permutation<T>> tmp{};
-    orb_.insert(next.begin(), next.end());
-    for (auto && [ elem, curgen ] : next)
-      for (auto igen = gensbeg; igen != gensend; ++igen) {
-        auto newelem = igen->apply(elem);     // beta ^ x
-        auto newgen = product(curgen, *igen); // u_beta * x
-        auto deltait = orb_.find(newelem);    // u_(beta ^ x)
-        if (deltait == orb_.end())
-          tmp.insert({newelem, newgen});
-        else
-          stab_.insert(product(newgen, invert(deltait->second)));
-      }
+    for (auto &&gen : gens_)
+      for (auto && [ elem, curgen ] : next)
+        if (auto newelem = gen.apply(elem); orb_.find(newelem) == orb_.end())
+          tmp.emplace(newelem, product(curgen, gen));
     next.swap(tmp);
+    orb_.insert(next.begin(), next.end());
   }
 }
 
-template <typename T, typename GenIter>
-ostream &DirectOrbit<T, GenIter>::dump(ostream &os) {
+template <typename T> ostream &DirectOrbit<T>::dump(ostream &os) {
   os << "[ ";
   for (auto &&oit : orb_)
     os << oit.first << ": " << oit.second << " ";
@@ -100,23 +103,32 @@ template <typename T> ostream &operator<<(ostream &os, DirectOrbit<T> d) {
 // v[num] = -1
 // v[elt not in num orbit] = 0
 // v[newelem] = i, where i is (#newgen + 1)
-//
-// std::array from T::start to T::fin is also possible,
-// but I am worrying about stack overflows
-using shreier_t = vector<int>;
 
 // orbit, internally storing shreier vectors
-template <typename T,
-          typename GenIter = typename vector<Permutation<T>>::iterator>
-class ShreierOrbit {
+template <typename T> class ShreierOrbit {
   T elt_;
-  vector<Permutation<T>> gens; // we shall store gens for ubeta
   set<T> orb_;
-  shreier_t v_;
+  vector<int> v_;
+  vector<Permutation<T>> gens_;
 
 public:
-  // ShreierOrbit() = default;
-  ShreierOrbit(T num, GenIter gensbeg, GenIter gensend);
+  template <typename GenIter>
+  ShreierOrbit(T num, GenIter gensbeg, GenIter gensend) : elt_(num) {
+    gens_.assign(gensbeg, gensend);
+    orb_.insert(num);
+    v_.resize(T::fin - T::start + 1);
+    v_[num - T::start] = -1;
+    extend_orbit();
+  }
+
+  void extend_orbit();
+  void extend_orbit(const Permutation<T> &newgen) {
+    auto oldsize = gens_.size();
+    if (find(gens_.begin(), gens_.end(), newgen) == gens_.end()) {
+      gens_.push_back(newgen);
+      extend_orbit();
+    }
+  }
   auto begin() { return orb_.begin(); }
   auto end() { return orb_.end(); }
   bool contains(const T &x) { return orb_.find(x) != orb_.end(); }
@@ -125,29 +137,23 @@ public:
   ostream &dump(ostream &os);
 };
 
-template <typename T, typename GenIter>
-ShreierOrbit<T, GenIter>::ShreierOrbit(T num, GenIter gensbeg, GenIter gensend)
-    : elt_(num), gens(gensbeg, gensend) {
-  vector<T> next{num};
-  v_.resize(T::fin - T::start + 1);
-  v_[num - T::start] = -1;
-
+template <typename T> void ShreierOrbit<T>::extend_orbit() {
+  set<T> next = orb_;
   while (!next.empty()) {
-    vector<T> tmp{};
-    orb_.insert(next.begin(), next.end());
+    set<T> tmp;
     for (auto elem : next)
-      for (auto igen = gensbeg; igen != gensend; ++igen)
+      for (auto igen = gens_.begin(); igen != gens_.end(); ++igen)
         if (auto newelem = igen->apply(elem); orb_.count(newelem) == 0) {
-          auto genidx = igen - gensbeg;
-          tmp.push_back(newelem);
+          auto genidx = igen - gens_.begin();
+          tmp.insert(newelem);
           v_[newelem - T::start] = genidx + 1;
         }
     next.swap(tmp);
+    orb_.insert(next.begin(), next.end());
   }
 }
 
-template <typename T, typename GenIter>
-auto ShreierOrbit<T, GenIter>::ubeta(T orbelem) {
+template <typename T> auto ShreierOrbit<T>::ubeta(T orbelem) {
   assert(orbelem >= T::start);
   assert(orbelem <= T::fin);
   Permutation<T> res{};
@@ -157,7 +163,7 @@ auto ShreierOrbit<T, GenIter>::ubeta(T orbelem) {
 
   while (k != -1) {
     assert(k != 0); // we can not normally go away from orbit unwinding
-    auto gen = gens[k - 1];
+    auto gen = gens_[k - 1];
     res.lmul(gen);
     gen.inverse();
     auto neworbelem = gen.apply(orbelem);
@@ -168,8 +174,7 @@ auto ShreierOrbit<T, GenIter>::ubeta(T orbelem) {
   return res;
 }
 
-template <typename T, typename GenIter>
-ostream &ShreierOrbit<T, GenIter>::dump(ostream &os) {
+template <typename T> ostream &ShreierOrbit<T>::dump(ostream &os) {
   os << "[ ";
   for (auto &&oit : orb_)
     os << oit << ": " << ubeta(oit) << " ";

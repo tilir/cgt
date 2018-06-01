@@ -7,6 +7,7 @@
 #include "idomain.hpp"
 #include "orbits.hpp"
 
+using namespace groupgens;
 using namespace orbits;
 
 #define orbit_check(cond, orb)                                                 \
@@ -17,14 +18,12 @@ using namespace orbits;
     }                                                                          \
   } while (0)
 
-template <typename T> using gens_t = vector<Permutation<T>>;
-
-template <template <class, class> class Orb, typename T, typename GenIT,
+template <template <class> class Orb, typename T, typename GenIT,
           typename OrbIt>
 void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend, OrbIt refbeg,
                           OrbIt refend) {
   // getting orbit and checking elements
-  Orb<T, GenIT> orbit(elt, gbeg, gend);
+  Orb<T> orbit(elt, gbeg, gend);
   for (auto rit = refbeg; rit != refend; ++rit)
     orbit_check(orbit.contains(*rit), orbit);
 
@@ -40,7 +39,7 @@ void do_test_simple_orbit(T elt, GenIT gbeg, GenIT gend, OrbIt refbeg,
   }
 }
 
-template <template <class, class> class Orb> int test_simple_orbit() {
+template <template <class> class Orb> int test_simple_orbit() {
   cout << "Simple orbit tests" << endl;
   using UD5 = UnsignedDomain<1, 5>;
 
@@ -49,19 +48,19 @@ template <template <class, class> class Orb> int test_simple_orbit() {
 
   // cyclic group
   UD5 celt = 1;
-  gens_t<UD5> cgens{{{1, 5, 4, 3, 2}}};
+  gens_t<UD5> cgens = cyclic_gens<UD5>();
   do_test_simple_orbit<Orb>(celt, cgens.begin(), cgens.end(), ref.begin(),
                             ref.end());
 
   // alternating group
   UD5 aelt = 2;
-  gens_t<UD5> agens{{{1, 2, 3}}, {{1, 2, 3, 4, 5}}};
+  gens_t<UD5> agens = alternating_gens<UD5>();
   do_test_simple_orbit<Orb>(aelt, agens.begin(), agens.end(), ref.begin(),
                             ref.end());
 
   // symmetric group
   UD5 selt = 3;
-  vector<Permutation<UD5>> sgens{{{1, 2, 3, 4, 5}}, {{1, 2}}};
+  vector<Permutation<UD5>> sgens = symmetric_gens<UD5>();
   do_test_simple_orbit<Orb>(selt, sgens.begin(), sgens.end(), ref.begin(),
                             ref.end());
 

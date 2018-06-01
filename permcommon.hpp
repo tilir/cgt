@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <initializer_list>
 #include <iostream>
 #include <iterator>
@@ -30,10 +31,14 @@
 
 using std::array;
 using std::cerr;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::steady_clock;
 using std::cout;
 using std::endl;
 using std::exception;
 using std::find;
+using std::forward;
 using std::initializer_list;
 using std::iota;
 using std::logic_error;
@@ -74,6 +79,13 @@ template <typename T> auto end(reversion_wrapper<T> w) {
 
 template <typename T> reversion_wrapper<T> reverse(T &&iterable) {
   return {iterable};
+}
+
+template <typename F, typename... Args>
+auto duration(F &&func, Args &&... args) {
+  auto start = steady_clock::now();
+  forward<decltype(func)>(func)(forward<Args>(args)...);
+  return duration_cast<milliseconds>(steady_clock::now() - start);
 }
 
 #endif

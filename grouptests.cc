@@ -9,6 +9,7 @@
 
 using orbits::DirectOrbit;
 using orbits::ShreierOrbit;
+using namespace groupgens;
 using namespace groups;
 
 #define simple_check(cond)                                                     \
@@ -34,7 +35,7 @@ int test_primitive_blocks() {
   return 0;
 }
 
-template <template <class, class> class OrbT> int test_strip() {
+template <template <class> class OrbT> int test_strip() {
   cout << "Strip tests" << endl;
   using UD5 = UnsignedDomain<1, 5>;
   using RandIt = typename gens_t<UD5>::iterator;
@@ -105,9 +106,9 @@ template <template <class, class> class OrbT> int test_strip() {
   }
 
   // test that all element NOT in group stripped to something other than end()
-  gens_t<UD5> GSYM = {{{1, 2}}, {{1, 2, 3, 4, 5}}};
+  gens_t<UD5> sgens = symmetric_gens<UD5>();
   set<Permutation<UD5>> allsym;
-  all_elements(GSYM.begin(), GSYM.end(), std::inserter(allsym, allsym.end()));
+  all_elements(sgens.begin(), sgens.end(), std::inserter(allsym, allsym.end()));
 
   for (auto &&x : allsym) {
     if (all.count(x) != 0)
@@ -119,18 +120,15 @@ template <template <class, class> class OrbT> int test_strip() {
   return 0;
 }
 
-template <template <class, class> class OrbT> int test_shreier_sims() {
+template <template <class> class OrbT> int test_shreier_sims() {
   cout << "Schreier-Sims tests" << endl;
 
   using UD5 = UnsignedDomain<1, 5>;
   using RandIt = typename gens_t<UD5>::iterator;
 
   // worst-case test: symmetric group
-  Permutation<UD5> a{{1, 2}};
-  Permutation<UD5> b{{1, 2, 3, 4, 5}};
-  gens_t<UD5> sgens = {a, b};
+  auto sgens = symmetric_gens<UD5>();
   auto[B, S, Delta] = shreier_sims<OrbT>(sgens.begin(), sgens.end());
-
   simple_check(B.size() == 4);
 
   // now we can get order of group as product of Deltas
@@ -142,15 +140,14 @@ template <template <class, class> class OrbT> int test_shreier_sims() {
   simple_check(gorder == 120);
 
   // cyclic group has size 5
-  Permutation<UD5> c{{1, 2, 3, 4, 5}};
-  gens_t<UD5> cgens = {c};
+  gens_t<UD5> cgens = cyclic_gens<UD5>();
   auto[B2, S2, Delta2] = shreier_sims<OrbT>(cgens.begin(), cgens.end());
   simple_check(B2.size() == 1);
   simple_check(Delta2.size() == 1);
   simple_check(Delta2[0].size() == 5);
 
   // alternating group
-  gens_t<UD5> agens{{{1, 2, 3}}, {{1, 2, 3, 4, 5}}};
+  gens_t<UD5> agens = alternating_gens<UD5>();
   auto[BA, SA, DeltaA] = shreier_sims<OrbT>(agens.begin(), agens.end());
   simple_check(BA.size() == 3);
 
