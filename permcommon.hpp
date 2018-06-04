@@ -23,6 +23,7 @@
 #include <map>
 #include <numeric>
 #include <queue>
+#include <random>
 #include <set>
 #include <sstream>
 #include <string>
@@ -46,14 +47,17 @@ using std::make_pair;
 using std::make_reverse_iterator;
 using std::make_tuple;
 using std::map;
+using std::max;
 using std::min_element;
 using std::move;
+using std::mt19937;
 using std::next;
 using std::ostream;
 using std::ostream_iterator;
 using std::pair;
 using std::prev;
 using std::queue;
+using std::random_device;
 using std::rbegin;
 using std::rend;
 using std::reverse;
@@ -86,6 +90,12 @@ auto duration(F &&func, Args &&... args) {
   auto start = steady_clock::now();
   forward<decltype(func)>(func)(forward<Args>(args)...);
   return duration_cast<milliseconds>(steady_clock::now() - start);
+}
+
+auto mtgen() {
+  static random_device rd;
+  static mt19937 g(rd());
+  return g;
 }
 
 #endif

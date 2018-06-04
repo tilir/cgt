@@ -21,8 +21,92 @@ template <typename T> using gensets_t = vector<gens_t<T>>;
 // primitivity blocks. Index in vector is #of class, vector of elements is class
 template <typename T> using classes_t = vector<vector<T>>;
 
+// random element via product replacement algorithm
+// ref: HCGT page 71
+// ref: https://en.wikipedia.org/wiki/Nielsen_transformation
+// r is size of generators vector
+// n is amount of burn-in session
+// passing r < 2 means "pick automaticaly"
+// returns function, returning random group elements
+// x = random_init(gbeg, gend, 10); auto t1 = x(), t2 = x(), t3 = x();
+template <typename RandIt>
+auto random_init(RandIt gensbeg, RandIt gensend, size_t r = 0, size_t n = 10);
+
 // all elements from group
 // will likely explode in general case, but useful for small tests
+template <typename RandIt, typename OutIt>
+size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results);
+
+// ref: HCGT, page 84
+// primitive block system for given transitive group action
+// really returns classes_t<T>
+template <typename T, typename RandIt>
+auto primitive_blocks(T num1, T num2, RandIt gensbeg, RandIt gensend);
+
+// ref: HCGT, page 89
+// takes generator g, sets Base and Delta* from shreier_sims below
+// returns h (possibly id). If h is not id, then g not in G.
+// If h is id, then g = uk * uk-1 * ... * u1
+template <typename Perm, typename BaseIt, typename DeltaIt>
+auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart);
+
+// ref: HCGT, page 91
+// takes generators g[0] .. g[s]
+// returns (B, S, Delta*) where
+// B = {b[1] .. b[k]} is base set (i.e. none of g[.] fixes all of B)
+// Define: Gi = Stab(G, b[1], .. b[i-1]), G1 = G, G2 fixes b1, etc...
+// S is strong generating set {S1 .. Sk} if Gi == <S[i]>
+// Delta* is set of orbits. Each Delta[i] is orbit of b[i] in G[i]
+template <template <class> class OrbT, typename RandIt>
+auto shreier_sims(RandIt gensbeg, RandIt gensend);
+
+//------------------------------------------------------------------------------
+//
+// implementation
+//
+//------------------------------------------------------------------------------
+
+template <typename RandIt>
+auto random_init(RandIt gensbeg, RandIt gensend, size_t r, size_t n) {
+  static random_device rd;
+  static mt19937 g(rd());
+  using PermT = typename RandIt::value_type;
+  vector<PermT> x;
+  PermT x0;
+
+  if (r < 2)
+    r = max<size_t>(10, distance(gensbeg, gensend));
+
+  while (x.size() < r)
+    for (auto git = gensbeg; git != gensend; ++git)
+      if (x.size() < r)
+        x.push_back(*git);
+
+  auto randget = [r, x, x0]() mutable {
+    size_t s = g() % r;
+    size_t t = g() % (r - 1);
+    if (t >= s)
+      t = (t + 1) % r;
+    size_t b = g() % 2;
+    int e = (g() % 2) * 2 - 1;
+
+    if (b == 0) {
+      x[s].rmul(perm_pow(x[t], e));
+      x0.rmul(x[s]);
+    } else {
+      x[s].lmul(perm_pow(x[t], e));
+      x0.lmul(x[s]);
+    }
+
+    return x0;
+  };
+
+  while (n-- > 0)
+    randget();
+
+  return randget;
+}
+
 template <typename RandIt, typename OutIt>
 size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results) {
   auto id = gensbeg->id();
@@ -42,8 +126,6 @@ size_t all_elements(RandIt gensbeg, RandIt gensend, OutIt results) {
   return total.size();
 }
 
-// ref: HCGT, page 84
-// primitive block system for given transitive group action
 template <typename T, typename RandIt>
 auto primitive_blocks(T num1, T num2, RandIt gensbeg, RandIt gensend) {
   map<T, size_t> classes;
@@ -109,10 +191,6 @@ auto primitive_blocks(T num1, T num2, RandIt gensbeg, RandIt gensend) {
   return outcv;
 }
 
-// ref: HCGT, page 89
-// takes generator g, sets Base and Delta* from shreier_sims below
-// returns h (possibly id). If h is not id, then g not in G.
-// If h is id, then g = uk * uk-1 * ... * u1
 template <typename Perm, typename BaseIt, typename DeltaIt>
 auto strip(Perm g, BaseIt bstart, BaseIt bfin, DeltaIt dstart) {
   auto h = g;
@@ -181,14 +259,6 @@ auto extend_base(size_t curidx, BaseIt Base, BaseIt BaseEnd, SetIt Gens,
                     Gens[curidx][0].id());
 }
 
-// ref: HCGT, page 91
-// takes generators g[0] .. g[s]
-// returns (B, S, Delta*) where
-// B = {b[1] .. b[k]} is base set (i.e. none of g[.] fixes all of B)
-// Define: Gi = Stab(G, b[1], .. b[i-1]), G1 = G, G2 fixes b1, etc...
-// S is strong generating set {S1 .. Sk} if Si == Gi
-// Delta* is set of orbits Delta[i] as map { elt => gen }
-//        each Delta[i] is orbit of b[i] in <S[i]>
 template <template <class> class OrbT, typename RandIt>
 auto shreier_sims(RandIt gensbeg, RandIt gensend) {
   using T = typename RandIt::value_type::value_type;
@@ -229,8 +299,10 @@ auto shreier_sims(RandIt gensbeg, RandIt gensend) {
       continue;
     }
 
+#ifndef NDEBUG
     if ((!extend && (newidx == S.size())) || (newidx > S.size()))
       throw runtime_error("Orbit extended beyond possible");
+#endif
 
     for (size_t l = curidx; l <= newidx; ++l) {
       if (extend && (l == newidx)) {

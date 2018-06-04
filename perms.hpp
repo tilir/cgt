@@ -66,9 +66,10 @@ public:
   Permutation &rmul(const Permutation &rhs);
 
   // inverted permutation
-  void inverse() {
+  Permutation &inverse() {
     for (auto &l : loops_)
       l.inverse();
+    return *this;
   }
 
   // id permutation for this one
@@ -160,6 +161,27 @@ Permutation<T> product(const Permutation<T> &lhs, const Permutation<T> &rhs) {
 template <typename T> Permutation<T> invert(Permutation<T> lhs) {
   lhs.inverse();
   return lhs;
+}
+
+template <typename T>
+Permutation<T> perm_pow(const Permutation<T> &lhs, int x) {
+  Permutation<T> res;
+  if (x == 0)
+    return res;
+  if (x == 1)
+    return lhs;
+  if (x == -1)
+    return invert(lhs);
+
+  int xval = (x > 0) ? x : -x;
+  // TODO: I can raise in power better
+  for (int n = 0; n < xval; ++n)
+    res.rmul(lhs);
+
+  if (x != xval)
+    res.inverse();
+
+  return res;
 }
 
 //------------------------------------------------------------------------------

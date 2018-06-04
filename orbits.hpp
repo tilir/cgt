@@ -52,6 +52,8 @@ template <typename T> class DirectOrbit {
   };
 
 public:
+  using type = T;
+
   template <typename GenIter>
   DirectOrbit(T num, GenIter gensbeg, GenIter gensend) : elt_(num) {
     orb_.insert({num, {}});
@@ -111,10 +113,17 @@ template <typename T> class ShreierOrbit {
   vector<int> v_;
   vector<Permutation<T>> gens_;
 
+  // also storing inverse generators to speed up critical ubeta section
+  vector<Permutation<T>> invgens_;
+
 public:
+  using type = T;
+
   template <typename GenIter>
   ShreierOrbit(T num, GenIter gensbeg, GenIter gensend) : elt_(num) {
     gens_.assign(gensbeg, gensend);
+    transform(gens_.begin(), gens_.end(), back_inserter(invgens_),
+              [](auto x) { return x.inverse(); });
     orb_.insert(num);
     v_.resize(T::fin - T::start + 1);
     v_[num - T::start] = -1;
@@ -126,6 +135,7 @@ public:
     auto oldsize = gens_.size();
     if (find(gens_.begin(), gens_.end(), newgen) == gens_.end()) {
       gens_.push_back(newgen);
+      invgens_.push_back(invert(newgen));
       extend_orbit();
     }
   }
@@ -163,10 +173,10 @@ template <typename T> auto ShreierOrbit<T>::ubeta(T orbelem) {
 
   while (k != -1) {
     assert(k != 0); // we can not normally go away from orbit unwinding
-    auto gen = gens_[k - 1];
+    const auto &gen = gens_[k - 1];
     res.lmul(gen);
-    gen.inverse();
-    auto neworbelem = gen.apply(orbelem);
+    const auto &invgen = invgens_[k - 1];
+    auto neworbelem = invgen.apply(orbelem);
     assert(orbelem != neworbelem); // we can not loop forever
     orbelem = neworbelem;
     k = v_[orbelem - T::start];

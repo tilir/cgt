@@ -158,12 +158,32 @@ template <template <class> class OrbT> int test_shreier_sims() {
   // Alt(5) size is 60
   simple_check(gorder == 60);
 
-  set<Permutation<UD5>> allsym;
-  all_elements(agens.begin(), agens.end(), std::inserter(allsym, allsym.end()));
+  set<Permutation<UD5>> allalt;
+  all_elements(agens.begin(), agens.end(), std::inserter(allalt, allalt.end()));
 
-  for (auto &&x : allsym) {
+  for (auto &&x : allalt) {
     auto res = strip(x, BA.begin(), BA.end(), DeltaA.begin());
     simple_check(res.first == x.id() && res.second == BA.end());
+  }
+
+  // Some special group
+  Permutation<UD5> a{{1, 2, 4, 3}};
+  Permutation<UD5> b{{1, 2, 5, 4}};
+  gens_t<UD5> xgens = {a, b};
+  auto[BX, SX, DeltaX] = shreier_sims<OrbT>(xgens.begin(), xgens.end());
+
+  gorder = 1;
+  for (auto &&d : DeltaX)
+    gorder *= d.size();
+
+  simple_check(gorder == 20);
+
+  auto xrand = random_init(xgens.begin(), xgens.end());
+
+  for (int x = 0; x < 10; ++x) {
+    auto elt = xrand();
+    auto res = strip(elt, BX.begin(), BX.end(), DeltaX.begin());
+    simple_check(res.first == elt.id() && res.second == BX.end());
   }
 
   return 0;

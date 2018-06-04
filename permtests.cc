@@ -213,12 +213,36 @@ int test_simple_perms() {
   return 0;
 }
 
+int test_powers() {
+  using UD5 = UnsignedDomain<1, 5>;
+  Permutation<UD5> e;
+  Permutation<UD5> g1{{1, 2, 3, 4, 5}};
+  auto g2 = product(g1, g1);
+  auto g3 = product(g2, g1);
+  auto g4 = product(g3, g1);
+  auto g5 = product(g4, g1);
+  simple_check(g5 == e);
+  simple_check(e == perm_pow(g1, 0));
+  simple_check(g1 == perm_pow(g1, 1));
+  simple_check(g2 == perm_pow(g1, 2));
+  simple_check(g3 == perm_pow(g1, 3));
+  simple_check(g4 == perm_pow(g1, 4));
+  simple_check(e == perm_pow(g1, 5));
+  simple_check(g4 == perm_pow(g1, -1));
+  simple_check(g3 == perm_pow(g1, -2));
+  simple_check(g2 == perm_pow(g1, -3));
+  simple_check(g1 == perm_pow(g1, -4));
+
+  return 0;
+}
+
 int main() {
   try {
     test_loops();
     test_create_loops();
     test_simplify_loops();
     test_simple_perms();
+    test_powers();
   } catch (exception &e) {
     cout << "Failed: " << e.what() << endl;
     exit(-1);
